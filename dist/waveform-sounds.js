@@ -1,5 +1,5 @@
 (() => {
-  // ../../Core/text/src/index.js
+  // node_modules/@arraypress/text/src/index.js
   var HTML_ESCAPES = Object.freeze({
     "&": "&amp;",
     "<": "&lt;",
