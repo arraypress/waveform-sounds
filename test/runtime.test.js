@@ -95,7 +95,7 @@ describe('building the list', () => {
         host.addEventListener('waveformsounds:ready', () => seen.push('event'));
         expect(seen).toEqual([]);
         await ws.ready;
-        expect(seen).toEqual([true, 'event']);
+        expect(seen).toEqual(['event', true]); // the DOM event, then onReady
     });
 
     it('destroy() removes only the classes it added', async () => {
