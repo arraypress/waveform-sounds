@@ -30,11 +30,15 @@ import '@arraypress/waveform-sounds/styles.css';
 ```
 
 Generate the manifest from a folder of previews (BPM and key are read from
-file names like `Bass_Loop_04_128_Fmin.wav`):
+file names like `Bass_Loop_04_128_Fmin.wav`; the type is the sub-folder).
+`--base-url` is the public URL the folder is served at:
 
 ```bash
-npx @arraypress/waveform-gen ./previews/*.mp3 --manifest ./public/sounds.json
+npx @arraypress/waveform-gen ./public/previews/ --recursive \
+  --manifest ./public/previews/sounds.json --base-url /previews/
 ```
+
+(`--manifest` needs `@arraypress/waveform-gen` 2.1.0 or later.)
 
 ## Options
 

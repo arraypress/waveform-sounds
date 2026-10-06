@@ -63,7 +63,7 @@ export function decodePeaks(value, scale = 1) {
 export function normalizeKey(key) {
     if (key == null) return '';
     const raw = String(key).trim();
-    const m = raw.match(/^([A-Ga-g])\s*([#♯b♭]?)\s*(m|min|minor|maj|major)?$/i);
+    const m = raw.match(/^([A-Ga-g])[\s_-]*([#♯b♭]?)[\s_-]*(m|min|minor|maj|major)?$/i);
     if (!m) return raw;
     const root = m[1].toUpperCase();
     const acc = m[2] === '♯' ? '#' : m[2] === '♭' ? 'b' : m[2];

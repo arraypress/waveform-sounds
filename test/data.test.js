@@ -31,7 +31,7 @@ describe('peaks codec', () => {
 describe('normalizeKey', () => {
     it.each([
         ['F minor', 'Fm'], ['Fmin', 'Fm'], ['f m', 'Fm'], ['F Minor', 'Fm'], ['Fm', 'Fm'],
-        ['C# Major', 'C#'], ['C♯', 'C#'], ['Bb', 'Bb'], ['B♭m', 'Bbm'], ['A', 'A'], ['FMaj', 'F'],
+        ['C# Major', 'C#'], ['F_minor', 'Fm'], ['C#-maj', 'C#'], ['C♯', 'C#'], ['Bb', 'Bb'], ['B♭m', 'Bbm'], ['A', 'A'], ['FMaj', 'F'],
     ])('%s → %s', (input, out) => expect(normalizeKey(input)).toBe(out));
     it('keeps an unparseable label as given', () => {
         expect(normalizeKey(' Various ')).toBe('Various');
