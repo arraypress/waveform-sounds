@@ -249,6 +249,7 @@ export class WaveformSounds {
             const row = t.closest('[data-ws-index]');
             if (!row || t.closest('.ws-wave')) return;
             this.toggle(Number(row.dataset.wsIndex));
+            this._focusRowQuietly(row);
         }, sig);
 
         // Seek on the row waveform. Pointer, not click: a press should
@@ -261,6 +262,7 @@ export class WaveformSounds {
             const r = wave.getBoundingClientRect();
             const pct = r.width ? Math.min(Math.max((e.clientX - r.left) / r.width, 0), 1) : 0;
             this._seekRow(Number(row.dataset.wsIndex), pct);
+            this._focusRowQuietly(row);
         };
         root.addEventListener('click', (e) => {
             if (this._lastPointer === 'touch' && e.target.closest('.ws-wave')) seekAt(e);
@@ -622,6 +624,18 @@ export class WaveformSounds {
 
     _focusRow(row) {
         row?.querySelector('.ws-play')?.focus();
+    }
+
+    /**
+     * After a mouse or touch play, put focus on that row's play button, so
+     * ↑/↓/←/→ drive the list instead of scrolling the page. A click on the
+     * title or the waveform (not focusable, and the waveform's press is
+     * preventDefault'd) used to leave focus on <body>. No scroll jump; the
+     * browser shows no focus ring for a focus that follows a pointer.
+     */
+    _focusRowQuietly(row) {
+        const btn = row?.querySelector('.ws-play');
+        if (btn && document.activeElement !== btn) btn.focus({preventScroll: true});
     }
 
     /* ── Playback ─────────────────────────────────────────────────────── */

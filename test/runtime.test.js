@@ -453,6 +453,26 @@ describe('playback', () => {
 describe('keyboard', () => {
     const key = (el, k) => el.dispatchEvent(new KeyboardEvent('keydown', {key: k, bubbles: true, cancelable: true}));
 
+    it('a click on a row title moves focus to its play button, so arrows work next', async () => {
+        const ws = await make();
+        rows()[1].querySelector('.ws-title').click();
+        await settle();
+        expect(document.activeElement).toBe(rows()[1].querySelector('.ws-play'));
+        key(document.activeElement, 'ArrowDown');
+        await settle();
+        expect(ws.current.title).toBe('Bass Loop 02');
+    });
+
+    it('a mouse seek on a waveform moves focus to that row too', async () => {
+        await make();
+        const wave = rows()[2].querySelector('.ws-wave');
+        wave.getBoundingClientRect = () => ({left: 0, width: 200, top: 0, height: 28, right: 200, bottom: 28});
+        const down = new Event('pointerdown', {bubbles: true, cancelable: true});
+        Object.assign(down, {pointerType: 'mouse', button: 0, clientX: 50});
+        wave.dispatchEvent(down);
+        expect(document.activeElement).toBe(rows()[2].querySelector('.ws-play'));
+    });
+
     it('/ focuses the search', async () => {
         await make();
         key(rows()[0].querySelector('.ws-play'), '/');
