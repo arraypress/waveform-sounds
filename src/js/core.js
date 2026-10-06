@@ -624,10 +624,15 @@ export class WaveformSounds {
     }
 
     _setPlaying(on) {
+        // Events only on a real change: at a natural end the browser fires
+        // `pause` then `ended`, and _onEnd() also settles the state — one
+        // pause event, not two.
+        const changed = this.playing !== on;
         this.playing = on;
         const index = this.currentIndex;
         if (index == null) return;
         this._paintRow(index);
+        if (!changed) return;
         const sound = this.sounds[index];
         if (on) {
             if (this.$.status) this.$.status.textContent = fill(this.strings.nowPlaying, {title: sound.title});

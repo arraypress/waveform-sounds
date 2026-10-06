@@ -1020,10 +1020,12 @@ var WaveformSounds = class _WaveformSounds {
     if (typeof this.options.onError === "function") this.options.onError(err, this);
   }
   _setPlaying(on) {
+    const changed = this.playing !== on;
     this.playing = on;
     const index = this.currentIndex;
     if (index == null) return;
     this._paintRow(index);
+    if (!changed) return;
     const sound = this.sounds[index];
     if (on) {
       if (this.$.status) this.$.status.textContent = fill(this.strings.nowPlaying, { title: sound.title });

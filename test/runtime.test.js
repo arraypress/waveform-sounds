@@ -282,6 +282,19 @@ describe('playback', () => {
         expect(ws.current.title).toBe('Bass Loop 02');
     });
 
+    it('a natural end emits end once and no extra pause', async () => {
+        const ws = await make();
+        const seen = [];
+        ['pause', 'end'].forEach((n) => host.addEventListener(`waveformsounds:${n}`, () => seen.push(n)));
+        ws.play(0);
+        await settle();
+        const engine = MockWaveformPlayer.instances[0];
+        engine.options.onPause(engine); // the browser's pause, fired before ended
+        engine._end();
+        expect(seen).toEqual(['pause', 'end']);
+        expect(ws.playing).toBe(false);
+    });
+
     it('next() reveals a sound beyond the current page', async () => {
         const ws = await make({pageSize: 1});
         ws.play(0);
