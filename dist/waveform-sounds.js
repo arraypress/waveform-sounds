@@ -427,6 +427,7 @@
     loop: false,
     autoAdvance: false,
     arrowAudition: true,
+    idPrefix: null,
     playerOptions: null,
     playerClass: null,
     strings: null,
