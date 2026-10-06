@@ -289,11 +289,12 @@ function renderSounds(sounds, options = {}) {
     }
     parts.push("</div>");
   }
+  parts.push('<div class="ws-meta">');
   if (typeChips) {
     parts.push(`<div class="ws-types" role="group" aria-label="${escapeHtml(s.types)}"><button type="button" class="ws-chip" data-ws-type="" aria-pressed="true">${escapeHtml(s.all)} <span class="ws-chip-count">${total}</span></button>` + f.types.map((t) => `<button type="button" class="ws-chip" data-ws-type="${escapeHtml(t.name)}" aria-pressed="false">${escapeHtml(t.name)} <span class="ws-chip-count">${t.count}</span></button>`).join("") + "</div>");
   }
   parts.push(`<p class="ws-count" data-ws-count aria-live="polite">${escapeHtml(countText(total, total, s))}</p>`);
-  parts.push("</div>");
+  parts.push("</div></div>");
   const page = o.pageSize > 0 ? o.pageSize : Infinity;
   parts.push(`<ul class="ws-list ws-list--${o.player}" role="list" data-ws-list>` + list.map((sound, i) => renderRow(sound, i, o, i >= page)).join("") + "</ul>");
   const more = total - Math.min(total, page);

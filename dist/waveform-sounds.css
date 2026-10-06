@@ -125,7 +125,8 @@
 }
 .ws-loop[aria-pressed='true'] { border-color: var(--ws-accent); background: var(--ws-current); }
 
-.ws-types { display: flex; flex-wrap: wrap; gap: 0.4rem; flex-basis: 100%; }
+.ws-meta { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+.ws-types { display: flex; flex-wrap: wrap; gap: 0.4rem; flex: 1 1 auto; min-width: 0; }
 .ws-chip {
     display: inline-flex;
     align-items: center;
@@ -221,7 +222,6 @@
     .ws-type { margin-left: calc(2.25rem + 0.75rem); }
     .ws-wave { order: 4; flex: 1 1 100%; margin-left: calc(2.25rem + 0.75rem); }
     .ws-play { order: 0; }
-    .ws-count { flex-basis: 100%; margin-left: 0; }
 }
 
 /* ── Footer bits ─────────────────────────────────────────────────────── */

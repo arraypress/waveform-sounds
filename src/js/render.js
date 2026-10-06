@@ -215,6 +215,9 @@ export function renderSounds(sounds, options = {}) {
         }
         parts.push('</div>');
     }
+    // The chips and the count share one row (the count alone when there
+    // are no chips).
+    parts.push('<div class="ws-meta">');
     if (typeChips) {
         parts.push(`<div class="ws-types" role="group" aria-label="${escapeHtml(s.types)}">`
             + `<button type="button" class="ws-chip" data-ws-type="" aria-pressed="true">${escapeHtml(s.all)} <span class="ws-chip-count">${total}</span></button>`
@@ -222,7 +225,7 @@ export function renderSounds(sounds, options = {}) {
             + '</div>');
     }
     parts.push(`<p class="ws-count" data-ws-count aria-live="polite">${escapeHtml(countText(total, total, s))}</p>`);
-    parts.push('</div>');
+    parts.push('</div></div>');
 
     const page = o.pageSize > 0 ? o.pageSize : Infinity;
     parts.push(`<ul class="ws-list ws-list--${o.player}" role="list" data-ws-list>`
