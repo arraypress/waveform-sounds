@@ -135,7 +135,7 @@ export function titleFromUrl(url) {
  *   duration?, tags?, peaks?, waveform?, id?}`.
  * @param {number} index - Its position (used for a fallback id).
  * @param {number} [peakScale=1] - Scale of an integer `peaks` array.
- * @returns {import('../../index').Sound|null} The sound, or null if it has
+ * @returns {import('../../../index').Sound|null} The sound, or null if it has
  *   no url.
  */
 export function normalizeSound(input, index, peakScale = 1) {
@@ -167,7 +167,7 @@ export function normalizeSound(input, index, peakScale = 1) {
  * Sounds without a url are dropped.
  *
  * @param {Object|Array} manifest
- * @returns {import('../../index').Sound[]}
+ * @returns {import('../../../index').Sound[]}
  */
 export function parseManifest(manifest) {
     const list = Array.isArray(manifest) ? manifest : Array.isArray(manifest?.sounds) ? manifest.sounds : [];
@@ -180,7 +180,7 @@ export function parseManifest(manifest) {
  * (a repeated id would make two rows answer to one play() call).
  * @param {Array} list
  * @param {number} [peakScale=1]
- * @returns {import('../../index').Sound[]}
+ * @returns {import('../../../index').Sound[]}
  */
 export function normalizeSounds(list, peakScale = 1) {
     const seen = new Set();
@@ -202,7 +202,7 @@ export function normalizeSounds(list, peakScale = 1) {
  * its count (in first-seen order), each key (in musical order), and the
  * BPM range. A control with nothing to offer is not rendered.
  *
- * @param {import('../../index').Sound[]} sounds
+ * @param {import('../../../index').Sound[]} sounds
  * @returns {{types: {name: string, count: number}[], keys: string[], bpm: {min: number, max: number}|null, hasDuration: boolean}}
  */
 export function facets(sounds) {
@@ -232,8 +232,8 @@ export function facets(sounds) {
  * number in the query also matches the BPM exactly, so "bass 128" finds
  * 128 BPM bass loops.
  *
- * @param {import('../../index').Sound} sound
- * @param {import('../../index').SoundsFilter} filter
+ * @param {import('../../../index').Sound} sound
+ * @param {import('../../../index').SoundsFilter} filter
  * @returns {boolean}
  */
 export function matches(sound, filter = {}) {
@@ -261,13 +261,35 @@ export function matches(sound, filter = {}) {
 /** The sort orders the toolbar offers. */
 export const SORTS = ['default', 'title', 'bpm', 'key', 'duration'];
 
+/** What each sort order needs from the data before it's worth offering. */
+const SORT_NEEDS = {
+    default: () => true,
+    title: () => true,
+    bpm: (f) => f.bpm !== null,
+    key: (f) => f.keys.length > 0,
+    duration: (f) => f.hasDuration,
+};
+
+/**
+ * The configured sort orders the data can use (no BPM sort without BPMs),
+ * in the configured order. Shared by the renderer and the runtime, so the
+ * menu and the starting order always agree.
+ *
+ * @param {string[]} sorts - The configured orders.
+ * @param {ReturnType<typeof facets>} f - The sounds' facets.
+ * @returns {string[]}
+ */
+export function availableSorts(sorts, f) {
+    return sorts.filter((sort) => SORT_NEEDS[sort]?.(f));
+}
+
 /**
  * Sort sounds (returns a new array; `default` keeps the given order).
  * Missing values sort last in every order.
  *
- * @param {import('../../index').Sound[]} sounds
+ * @param {import('../../../index').Sound[]} sounds
  * @param {string} [by='default']
- * @returns {import('../../index').Sound[]}
+ * @returns {import('../../../index').Sound[]}
  */
 export function sortSounds(sounds, by = 'default') {
     const list = sounds.map((s, i) => ({s, i}));

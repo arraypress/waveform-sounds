@@ -5,7 +5,7 @@ import {describe, it, expect} from 'vitest';
 import {
     encodePeaks, decodePeaks, normalizeKey, parseDuration, formatDuration, titleFromUrl,
     normalizeSounds, parseManifest, facets, matches, sortSounds,
-} from '../src/js/data.js';
+} from '../../../src/js/data/sounds.js';
 
 describe('peaks codec', () => {
     it('round-trips 0..1 peaks through 8-bit hex', () => {

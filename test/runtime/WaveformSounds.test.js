@@ -1,7 +1,7 @@
 import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest';
-import {settle, MockWaveformPlayer} from './setup.js';
-import {WaveformSounds} from '../src/js/entry.js';
-import {renderSoundsElement} from '../src/js/render.js';
+import {settle, MockWaveformPlayer} from '../setup.js';
+import {WaveformSounds} from '../../src/js/entry.js';
+import {renderSoundsElement} from '../../src/js/render/markup.js';
 
 const SOUNDS = [
     {url: '/s/bass-01.mp3', title: 'Bass Loop 01', type: 'Bass', bpm: 128, key: 'Fm', duration: 8, peaks: '204060'},

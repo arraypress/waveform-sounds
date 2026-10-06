@@ -1,8 +1,10 @@
 // @vitest-environment node
 // The renderer must run with no DOM: wrappers call it on the server.
 import {describe, it, expect} from 'vitest';
-import {renderSounds, renderSoundsElement} from '../src/js/render.js';
-import * as renderEntry from '../src/js/render-entry.js';
+import {renderSounds, renderSoundsElement, toolbarPlan, idBase} from '../../../src/js/render/markup.js';
+import {facets, normalizeSounds} from '../../../src/js/data/sounds.js';
+import {resolveRenderOptions} from '../../../src/js/render/options.js';
+import * as renderEntry from '../../../src/js/render-entry.js';
 
 const sounds = [
     {url: '/a.mp3', title: 'Bass <b>Loop</b>', type: 'Bass', bpm: 128, key: 'F minor', duration: 8, peaks: [0, 1]},
@@ -123,5 +125,26 @@ describe('renderSounds (server)', () => {
     it('wraps in the auto-init element', () => {
         const html = renderSoundsElement(sounds, {player: 'strip'}, 'extra');
         expect(html.startsWith('<div class="waveform-sounds waveform-sounds--strip extra" data-waveform-sounds data-player="strip">')).toBe(true);
+    });
+});
+
+describe('toolbarPlan', () => {
+    const plan = (sounds, opts = {}) => toolbarPlan(facets(normalizeSounds(sounds)), resolveRenderOptions(opts));
+    const many = Array.from({length: 4}, (_, i) => ({url: `/${i}.mp3`, type: `T${i}`, key: i % 2 ? 'C' : 'Fm', bpm: 120 + i, duration: 8}));
+    it('shows a control only when the data gives it something to do', () => {
+        expect(plan([{url: '/a.mp3'}, {url: '/b.mp3'}])).toMatchObject({types: null, key: false, bpm: false, sorts: ['default', 'title']});
+        expect(plan(many)).toMatchObject({types: 'chips', key: true, bpm: true, sorts: ['default', 'title', 'bpm', 'key', 'duration']});
+    });
+    it('types become a menu past maxTypeChips; disabled controls stay off', () => {
+        expect(plan(many, {maxTypeChips: 2}).types).toBe('menu');
+        expect(plan(many, {filters: ['type'], sorts: ['title']})).toMatchObject({key: false, bpm: false, sorts: []});
+    });
+});
+
+describe('idBase', () => {
+    it('is stable for the same sounds and differs for others', () => {
+        expect(idBase([{url: '/a.mp3'}])).toBe(idBase([{url: '/a.mp3'}]));
+        expect(idBase([{url: '/a.mp3'}])).not.toBe(idBase([{url: '/b.mp3'}]));
+        expect(idBase([{url: '/a.mp3'}])).toMatch(/^ws[0-9a-z]+$/);
     });
 });

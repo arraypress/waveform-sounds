@@ -46,7 +46,7 @@ function escapeHtml(input) {
   return String(input).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
 }
 
-// src/js/data.js
+// src/js/data/sounds.js
 function encodePeaks(peaks) {
   if (!Array.isArray(peaks)) return "";
   let out = "";
@@ -170,8 +170,52 @@ function facets(sounds) {
   };
 }
 var SORTS = ["default", "title", "bpm", "key", "duration"];
+var SORT_NEEDS = {
+  default: () => true,
+  title: () => true,
+  bpm: (f) => f.bpm !== null,
+  key: (f) => f.keys.length > 0,
+  duration: (f) => f.hasDuration
+};
+function availableSorts(sorts, f) {
+  return sorts.filter((sort) => SORT_NEEDS[sort]?.(f));
+}
 
-// src/js/render.js
+// src/js/render/html.js
+var VOID = /* @__PURE__ */ new Set(["input", "br", "img"]);
+function text(value) {
+  return escapeHtml(value ?? "");
+}
+function attrs(map = {}) {
+  let out = "";
+  for (const [name, value] of Object.entries(map)) {
+    if (value === true) out += ` ${name}`;
+    else if (value !== false && value != null) out += ` ${name}="${escapeHtml(value)}"`;
+  }
+  return out;
+}
+function h(tag, attributes = {}, ...children) {
+  const open = `<${tag}${attrs(attributes)}>`;
+  if (VOID.has(tag)) return open;
+  return open + children.flat(Infinity).filter((c) => c != null && c !== false && c !== "").join("") + `</${tag}>`;
+}
+
+// src/js/render/icons.js
+function icon(path, extraClass = "") {
+  const cls = extraClass ? `ws-icon ${extraClass}` : "ws-icon";
+  return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
+}
+var ICONS = {
+  play: icon("M8 5.5v13l11-6.5z", "ws-icon-play"),
+  pause: icon("M7 5h3.5v14H7zM13.5 5H17v14h-3.5z", "ws-icon-pause"),
+  search: icon("M10.5 4a6.5 6.5 0 1 0 4.03 11.6l4.43 4.43 1.41-1.41-4.43-4.43A6.5 6.5 0 0 0 10.5 4zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z"),
+  chevron: icon("M6.4 8.6 12 14.2l5.6-5.6L19 10l-7 7-7-7z", "ws-menu-chevron"),
+  check: icon("M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 11-11-1.4-1.4z", "ws-menu-check"),
+  download: icon("M11 4h2v8.6l3.3-3.3 1.4 1.4L12 16.4l-5.7-5.7 1.4-1.4 3.3 3.3zM5 18h14v2H5z"),
+  loop: icon("M17 4l3 3-3 3V8H8a3 3 0 0 0-3 3v1H3v-1a5 5 0 0 1 5-5h9V4zM7 20l-3-3 3-3v2h9a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5H7v2z")
+};
+
+// src/js/render/strings.js
 var DEFAULT_STRINGS = {
   search: "Search sounds",
   searchPlaceholder: "Search sounds\u2026",
@@ -206,164 +250,276 @@ var DEFAULT_STRINGS = {
   clear: "Clear filters",
   nowPlaying: "Playing {title}"
 };
-var RENDER_DEFAULTS = {
-  player: "inline",
-  search: true,
-  filters: ["type", "key", "bpm"],
-  sorts: ["default", "title", "bpm", "key", "duration"],
-  loopToggle: true,
-  showCount: true,
-  menuSearch: 8,
-  pageSize: 50,
-  columns: ["type", "bpm", "key", "duration"],
-  maxTypeChips: 10
+var SORT_LABEL_KEYS = {
+  default: "sortDefault",
+  title: "sortTitle",
+  bpm: "sortBpm",
+  key: "sortKey",
+  duration: "sortDuration"
 };
 function fill(template, vars = {}) {
-  return String(template).replace(/\{(\w+)\}/g, (m, k) => k in vars ? String(vars[k]) : m);
+  return String(template).replace(/\{(\w+)\}/g, (match, name) => name in vars ? String(vars[name]) : match);
 }
 function countText(shown, total, strings = DEFAULT_STRINGS) {
   if (shown !== total) return fill(strings.countFiltered, { count: shown, total });
   return total === 1 ? strings.countOne : fill(strings.count, { count: total });
 }
-var ICON_PLAY = '<svg class="ws-icon ws-icon-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5.5v13l11-6.5z"/></svg>';
-var ICON_PAUSE = '<svg class="ws-icon ws-icon-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>';
-var ICON_SEARCH = '<svg class="ws-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10.5 4a6.5 6.5 0 1 0 4.03 11.6l4.43 4.43 1.41-1.41-4.43-4.43A6.5 6.5 0 0 0 10.5 4zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z"/></svg>';
-var ICON_CHEVRON = '<svg class="ws-icon ws-menu-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 8.6 12 14.2l5.6-5.6L19 10l-7 7-7-7z"/></svg>';
-var ICON_CHECK = '<svg class="ws-icon ws-menu-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 11-11-1.4-1.4z"/></svg>';
-var ICON_DOWNLOAD = '<svg class="ws-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 4h2v8.6l3.3-3.3 1.4 1.4L12 16.4l-5.7-5.7 1.4-1.4 3.3 3.3zM5 18h14v2H5z"/></svg>';
-var ICON_LOOP = '<svg class="ws-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17 4l3 3-3 3V8H8a3 3 0 0 0-3 3v1H3v-1a5 5 0 0 1 5-5h9V4zM7 20l-3-3 3-3v2h9a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5H7v2z"/></svg>';
-function resolveRenderOptions(options = {}) {
-  const o = { ...RENDER_DEFAULTS, ...stripUndefined(options) };
-  if (o.player !== "strip") o.player = "inline";
-  o.filters = Array.isArray(o.filters) ? o.filters.filter((f) => ["type", "key", "bpm"].includes(f)) : RENDER_DEFAULTS.filters;
-  o.sorts = Array.isArray(o.sorts) ? o.sorts.filter((k) => SORTS.includes(k)) : RENDER_DEFAULTS.sorts;
-  o.menuSearch = Number.isFinite(Number(o.menuSearch)) && Number(o.menuSearch) >= 0 ? Math.floor(Number(o.menuSearch)) : RENDER_DEFAULTS.menuSearch;
-  o.columns = Array.isArray(o.columns) ? o.columns.filter((c) => ["type", "bpm", "key", "duration"].includes(c)) : RENDER_DEFAULTS.columns;
-  o.maxTypeChips = Number.isFinite(Number(o.maxTypeChips)) && Number(o.maxTypeChips) >= 0 ? Math.floor(Number(o.maxTypeChips)) : RENDER_DEFAULTS.maxTypeChips;
-  o.pageSize = Number.isFinite(Number(o.pageSize)) && Number(o.pageSize) >= 0 ? Math.floor(Number(o.pageSize)) : RENDER_DEFAULTS.pageSize;
-  o.strings = { ...DEFAULT_STRINGS, ...stripUndefined(options.strings || {}) };
-  return o;
-}
-function stripUndefined(obj) {
+
+// src/js/render/options.js
+var FILTERS = ["type", "key", "bpm"];
+var COLUMNS = ["type", "bpm", "key", "duration"];
+var RENDER_DEFAULTS = {
+  player: "inline",
+  search: true,
+  filters: [...FILTERS],
+  sorts: [...SORTS],
+  loopToggle: true,
+  showCount: true,
+  menuSearch: 8,
+  pageSize: 50,
+  columns: [...COLUMNS],
+  maxTypeChips: 10
+};
+function defined(obj) {
   const out = {};
-  for (const k in obj) if (obj[k] !== void 0) out[k] = obj[k];
+  for (const k in obj ?? {}) if (obj[k] !== void 0) out[k] = obj[k];
   return out;
 }
-function renderRow(sound, index, o, hidden = false) {
-  const s = o.strings;
-  const attrs = [
-    `class="ws-row"`,
-    `data-ws-index="${index}"`,
-    `data-ws-id="${escapeHtml(sound.id)}"`,
-    `data-url="${escapeHtml(sound.url)}"`,
-    `data-title="${escapeHtml(sound.title)}"`,
-    sound.type ? `data-type="${escapeHtml(sound.type)}"` : "",
-    sound.bpm != null ? `data-bpm="${sound.bpm}"` : "",
-    sound.key ? `data-key="${escapeHtml(sound.key)}"` : "",
-    sound.duration != null ? `data-duration="${sound.duration}"` : "",
-    sound.tags?.length ? `data-tags="${escapeHtml(sound.tags.join(","))}"` : "",
-    sound.peaks ? `data-peaks="${encodePeaks(sound.peaks)}"` : "",
-    sound.waveform ? `data-waveform="${escapeHtml(sound.waveform)}"` : "",
-    sound.download ? `data-download="${escapeHtml(sound.download)}"` : "",
-    hidden ? "hidden" : ""
-  ].filter(Boolean).join(" ");
-  const cols = o.columns.map((c) => {
-    if (c === "type") return `<span class="ws-cell ws-type">${escapeHtml(sound.type)}</span>`;
-    if (c === "bpm") return `<span class="ws-cell ws-bpm">${sound.bpm != null ? escapeHtml(sound.bpm) : ""}</span>`;
-    if (c === "key") return `<span class="ws-cell ws-key">${escapeHtml(sound.key)}</span>`;
-    return `<span class="ws-cell ws-duration">${escapeHtml(formatDuration(sound.duration))}</span>`;
-  }).join("");
-  const wave = o.player === "inline" ? `<span class="ws-wave" role="slider" aria-label="${escapeHtml(fill(s.seek, { title: sound.title }))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="-1"><canvas class="ws-canvas" aria-hidden="true"></canvas></span>` : "";
-  return `<li ${attrs}><button type="button" class="ws-play" aria-pressed="false" aria-label="${escapeHtml(fill(s.play, { title: sound.title }))}">${ICON_PLAY}${ICON_PAUSE}</button><span class="ws-cell ws-title">${escapeHtml(sound.title)}</span>` + (cols ? `<span class="ws-cells">${cols}</span>` : "") + wave + (sound.download ? `<a class="ws-download" href="${escapeHtml(sound.download)}" download aria-label="${escapeHtml(fill(s.download, { title: sound.title }))}">${ICON_DOWNLOAD}</a>` : "") + `</li>`;
+function allowedList(values, allowed, fallback) {
+  return Array.isArray(values) ? values.filter((v) => allowed.includes(v)) : fallback;
 }
-function availableSorts(sorts, f) {
-  return sorts.filter((k) => k === "default" || k === "title" || k === "bpm" && f.bpm || k === "key" && f.keys.length || k === "duration" && f.hasDuration);
+function wholeNumber(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
 }
-function idBase(list) {
-  let h = 5381;
-  const str = list.length + "|" + list.map((x) => x.url).join("|");
-  for (let i = 0; i < str.length; i++) h = (h << 5) + h + str.charCodeAt(i) | 0;
-  return "ws" + (h >>> 0).toString(36);
+function resolveRenderOptions(options = {}) {
+  const o = { ...RENDER_DEFAULTS, ...defined(options) };
+  return {
+    ...o,
+    player: o.player === "strip" ? "strip" : "inline",
+    filters: allowedList(o.filters, FILTERS, RENDER_DEFAULTS.filters),
+    sorts: allowedList(o.sorts, SORTS, RENDER_DEFAULTS.sorts),
+    columns: allowedList(o.columns, COLUMNS, RENDER_DEFAULTS.columns),
+    menuSearch: wholeNumber(o.menuSearch, RENDER_DEFAULTS.menuSearch),
+    maxTypeChips: wholeNumber(o.maxTypeChips, RENDER_DEFAULTS.maxTypeChips),
+    pageSize: wholeNumber(o.pageSize, RENDER_DEFAULTS.pageSize),
+    strings: { ...DEFAULT_STRINGS, ...defined(options.strings) }
+  };
+}
+
+// src/js/shared/utils.js
+function hashString(str) {
+  let hash = 5381;
+  for (const char of str) hash = hash * 33 + char.codePointAt(0) >>> 0;
+  return hash;
+}
+
+// src/js/render/markup.js
+function idBase(sounds) {
+  const signature = [sounds.length, ...sounds.map((s) => s.url)].join("|");
+  return `ws${hashString(signature).toString(36)}`;
+}
+function toolbarPlan(f, o) {
+  const typed = o.filters.includes("type") && f.types.length > 1;
+  const sorts = availableSorts(o.sorts, f);
+  return {
+    types: !typed ? null : f.types.length > o.maxTypeChips ? "menu" : "chips",
+    key: o.filters.includes("key") && f.keys.length > 1,
+    bpm: o.filters.includes("bpm") && f.bpm !== null && f.bpm.max > f.bpm.min,
+    sorts: sorts.length > 1 ? sorts : [],
+    search: !!o.search,
+    loop: !!o.loopToggle,
+    count: !!o.showCount
+  };
+}
+function renderSearch(s) {
+  return h(
+    "label",
+    { class: "ws-search" },
+    ICONS.search,
+    h("span", { class: "ws-sr" }, text(s.search)),
+    h("input", { type: "search", class: "ws-search-input", "data-ws-search": true, placeholder: s.searchPlaceholder, autocomplete: "off", spellcheck: "false" })
+  );
 }
 function renderMenu(name, m) {
-  const id = `${m.id}-${name}`;
-  const current = m.options.find((o) => o.value === m.value) || m.options[0];
-  const searchable = m.options.length > m.searchFrom && m.placeholder;
-  return `<div class="ws-menu" data-ws-menu="${name}"><button type="button" class="ws-menu-btn" data-ws-menu-btn aria-haspopup="listbox" aria-expanded="false" aria-controls="${id}-list">` + (m.prefix ? `<span class="ws-menu-prefix">${escapeHtml(m.prefix)}</span>` : `<span class="ws-sr">${escapeHtml(m.label)}: </span>`) + `<span class="ws-menu-value" data-ws-menu-value>${escapeHtml(current.label)}</span>${ICON_CHEVRON}</button><div class="ws-menu-pop" data-ws-menu-pop hidden>` + (searchable ? `<input type="search" class="ws-menu-search" data-ws-menu-search role="combobox" aria-expanded="true" aria-controls="${id}-list" aria-autocomplete="list" aria-label="${escapeHtml(m.placeholder)}" placeholder="${escapeHtml(m.placeholder)}" autocomplete="off" spellcheck="false">` : "") + `<ul class="ws-menu-list" role="listbox" id="${id}-list" aria-label="${escapeHtml(m.label)}" tabindex="-1" data-ws-menu-list>` + m.options.map((o, i) => `<li role="option" id="${id}-${i}" class="ws-menu-option" data-value="${escapeHtml(o.value)}" aria-selected="${o === current}">${ICON_CHECK}<span class="ws-menu-text">${escapeHtml(o.label)}</span>` + (o.count != null ? `<span class="ws-menu-count">${o.count}</span>` : "") + "</li>").join("") + `</ul><p class="ws-menu-none" data-ws-menu-none hidden>${escapeHtml(m.noMatches)}</p></div></div>`;
+  const listId = `${m.id}-${name}-list`;
+  const current = m.options.find((o) => o.value === m.value) ?? m.options[0];
+  const searchable = m.placeholder && m.options.length > m.searchFrom;
+  const button = h(
+    "button",
+    { type: "button", class: "ws-menu-btn", "data-ws-menu-btn": true, "aria-haspopup": "listbox", "aria-expanded": "false", "aria-controls": listId },
+    m.prefix ? h("span", { class: "ws-menu-prefix" }, text(m.prefix)) : h("span", { class: "ws-sr" }, text(`${m.label}: `)),
+    h("span", { class: "ws-menu-value", "data-ws-menu-value": true }, text(current.label)),
+    ICONS.chevron
+  );
+  const search = searchable && h("input", {
+    type: "search",
+    class: "ws-menu-search",
+    "data-ws-menu-search": true,
+    role: "combobox",
+    "aria-expanded": "true",
+    "aria-controls": listId,
+    "aria-autocomplete": "list",
+    "aria-label": m.placeholder,
+    placeholder: m.placeholder,
+    autocomplete: "off",
+    spellcheck: "false"
+  });
+  const options = m.options.map((o, i) => h(
+    "li",
+    { role: "option", id: `${m.id}-${name}-${i}`, class: "ws-menu-option", "data-value": o.value, "aria-selected": String(o === current) },
+    ICONS.check,
+    h("span", { class: "ws-menu-text" }, text(o.label)),
+    o.count != null && h("span", { class: "ws-menu-count" }, text(o.count))
+  ));
+  return h(
+    "div",
+    { class: "ws-menu", "data-ws-menu": name },
+    button,
+    h(
+      "div",
+      { class: "ws-menu-pop", "data-ws-menu-pop": true, hidden: true },
+      search,
+      h("ul", { class: "ws-menu-list", role: "listbox", id: listId, "aria-label": m.label, tabindex: "-1", "data-ws-menu-list": true }, options),
+      h("p", { class: "ws-menu-none", "data-ws-menu-none": true, hidden: true }, text(m.noMatches))
+    )
+  );
+}
+function renderBpmRange(s, range) {
+  const field = (attr, label, placeholder) => h("input", { type: "number", inputmode: "numeric", [attr]: true, "aria-label": label, placeholder, min: "0", step: "1" });
+  return h(
+    "span",
+    { class: "ws-bpm-range", role: "group", "aria-label": s.bpm },
+    field("data-ws-bpm-min", s.bpmMin, range.min),
+    h("span", { "aria-hidden": "true" }, "\u2013"),
+    field("data-ws-bpm-max", s.bpmMax, range.max),
+    h("span", { class: "ws-bpm-unit", "aria-hidden": "true" }, text(s.bpm))
+  );
+}
+function renderLoopToggle(s) {
+  return h("button", { type: "button", class: "ws-loop", "data-ws-loop": true, "aria-pressed": "false" }, ICONS.loop, h("span", {}, text(s.loop)));
+}
+function renderChip(value, label, count, pressed) {
+  return h(
+    "button",
+    { type: "button", class: "ws-chip", "data-ws-type": value, "aria-pressed": String(pressed) },
+    h("span", { class: "ws-chip-label" }, text(label)),
+    " ",
+    h("span", { class: "ws-chip-count" }, text(count))
+  );
+}
+function renderToolbar(plan, { o, s, f, total, id }) {
+  const menu = (name, m) => renderMenu(name, { id, searchFrom: o.menuSearch, noMatches: s.noMatches, ...m });
+  const controls = [
+    plan.types === "menu" && menu("type", {
+      label: s.types,
+      value: "",
+      placeholder: s.findType,
+      options: [{ value: "", label: s.allTypes, count: total }, ...f.types.map((t) => ({ value: t.name, label: t.name, count: t.count }))]
+    }),
+    plan.key && menu("key", {
+      label: s.key,
+      value: "",
+      placeholder: s.findKey,
+      options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k }))]
+    }),
+    plan.bpm && renderBpmRange(s, f.bpm),
+    plan.sorts.length > 0 && menu("sort", {
+      label: s.sort,
+      prefix: s.sortBy,
+      value: plan.sorts[0],
+      options: plan.sorts.map((k) => ({ value: k, label: s[SORT_LABEL_KEYS[k]] }))
+    }),
+    plan.loop && renderLoopToggle(s)
+  ].filter(Boolean);
+  const chips = plan.types === "chips" && h(
+    "div",
+    { class: "ws-types", role: "group", "aria-label": s.types },
+    renderChip("", s.all, total, true),
+    f.types.map((t) => renderChip(t.name, t.name, t.count, false))
+  );
+  const count = plan.count && h("p", { class: "ws-count", "data-ws-count": true, "aria-live": "polite" }, text(countText(total, total, s)));
+  return h(
+    "div",
+    { class: "ws-toolbar" },
+    plan.search && renderSearch(s),
+    controls.length > 0 && h("div", { class: "ws-controls" }, controls),
+    // The chips and the count share a row (the count alone without chips).
+    (chips || count) && h("div", { class: "ws-meta" }, chips, count)
+  );
+}
+var CELLS = {
+  type: (sound) => text(sound.type),
+  bpm: (sound) => text(sound.bpm ?? ""),
+  key: (sound) => text(sound.key),
+  duration: (sound) => text(formatDuration(sound.duration))
+};
+function renderRow(sound, index, o, hidden = false) {
+  const s = o.strings;
+  const vars = { title: sound.title };
+  const cells = o.columns.map((c) => h("span", { class: `ws-cell ws-${c}` }, CELLS[c](sound)));
+  return h(
+    "li",
+    {
+      class: "ws-row",
+      "data-ws-index": index,
+      "data-ws-id": sound.id,
+      "data-url": sound.url,
+      "data-title": sound.title,
+      "data-type": sound.type || null,
+      "data-bpm": sound.bpm,
+      "data-key": sound.key || null,
+      "data-duration": sound.duration,
+      "data-tags": sound.tags?.length ? sound.tags.join(",") : null,
+      "data-peaks": sound.peaks ? encodePeaks(sound.peaks) : null,
+      "data-waveform": sound.waveform,
+      "data-download": sound.download,
+      hidden
+    },
+    h("button", { type: "button", class: "ws-play", "aria-pressed": "false", "aria-label": fill(s.play, vars) }, ICONS.play, ICONS.pause),
+    h("span", { class: "ws-cell ws-title" }, text(sound.title)),
+    // Wide rows: `display: contents` makes each cell a column. Narrow
+    // rows: one line under the title.
+    cells.length > 0 && h("span", { class: "ws-cells" }, cells),
+    o.player === "inline" && h(
+      "span",
+      { class: "ws-wave", role: "slider", "aria-label": fill(s.seek, vars), "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": "0", tabindex: "-1" },
+      h("canvas", { class: "ws-canvas", "aria-hidden": "true" })
+    ),
+    // Optional, per sound: a plain link. Rows without one carry nothing.
+    sound.download && h("a", { class: "ws-download", href: sound.download, download: true, "aria-label": fill(s.download, vars) }, ICONS.download)
+  );
+}
+function renderFooter({ o, s, total }) {
+  const page = o.pageSize > 0 ? o.pageSize : total;
+  const more = Math.max(0, total - page);
+  const strip = o.player === "strip";
+  return [
+    h(
+      "p",
+      { class: "ws-empty", "data-ws-empty": true, hidden: true },
+      text(s.empty),
+      " ",
+      h("button", { type: "button", class: "ws-clear", "data-ws-clear": true }, text(s.clear))
+    ),
+    h("button", { type: "button", class: "ws-more", "data-ws-more": true, hidden: more === 0 }, text(fill(s.showMore, { count: Math.min(more, page) }))),
+    h("div", { class: strip ? "ws-engine ws-engine--strip" : "ws-engine", "data-ws-engine": true, hidden: !strip }),
+    h("p", { class: "ws-sr", "data-ws-status": true, "aria-live": "polite" })
+  ].join("");
 }
 function renderSounds(sounds, options = {}) {
   const o = resolveRenderOptions(options);
   const list = normalizeSounds(sounds);
-  const s = o.strings;
-  const f = facets(list);
-  const total = list.length;
-  const showTypes = o.filters.includes("type") && f.types.length > 1;
-  const typeMenu = showTypes && f.types.length > o.maxTypeChips;
-  const typeChips = showTypes && !typeMenu;
-  const showKey = o.filters.includes("key") && f.keys.length > 1;
-  const showBpm = o.filters.includes("bpm") && f.bpm && f.bpm.max > f.bpm.min;
-  const sorts = availableSorts(o.sorts, f);
-  const showSort = sorts.length > 1;
-  const id = o.idPrefix || idBase(list);
-  const menu = (name, m) => renderMenu(name, { searchFrom: o.menuSearch, noMatches: s.noMatches, id, ...m });
-  const parts = [];
-  parts.push('<div class="ws-toolbar">');
-  if (o.search) {
-    parts.push(`<label class="ws-search">${ICON_SEARCH}<span class="ws-sr">${escapeHtml(s.search)}</span><input type="search" class="ws-search-input" data-ws-search placeholder="${escapeHtml(s.searchPlaceholder)}" autocomplete="off" spellcheck="false"></label>`);
-  }
-  if (typeMenu || showKey || showBpm || showSort || o.loopToggle) {
-    parts.push('<div class="ws-controls">');
-    if (typeMenu) {
-      parts.push(menu("type", {
-        label: s.types,
-        value: "",
-        placeholder: s.findType,
-        options: [{ value: "", label: s.allTypes, count: total }, ...f.types.map((t) => ({ value: t.name, label: t.name, count: t.count }))]
-      }));
-    }
-    if (showKey) {
-      parts.push(menu("key", {
-        label: s.key,
-        value: "",
-        placeholder: s.findKey,
-        options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k }))]
-      }));
-    }
-    if (showBpm) {
-      parts.push(`<span class="ws-bpm-range" role="group" aria-label="${escapeHtml(s.bpm)}"><input type="number" inputmode="numeric" data-ws-bpm-min aria-label="${escapeHtml(s.bpmMin)}" placeholder="${f.bpm.min}" min="0" step="1"><span aria-hidden="true">\u2013</span><input type="number" inputmode="numeric" data-ws-bpm-max aria-label="${escapeHtml(s.bpmMax)}" placeholder="${f.bpm.max}" min="0" step="1"><span class="ws-bpm-unit" aria-hidden="true">${escapeHtml(s.bpm)}</span></span>`);
-    }
-    if (showSort) {
-      const label = { default: s.sortDefault, title: s.sortTitle, bpm: s.sortBpm, key: s.sortKey, duration: s.sortDuration };
-      parts.push(menu("sort", {
-        label: s.sort,
-        prefix: s.sortBy,
-        value: sorts[0],
-        options: sorts.map((k) => ({ value: k, label: label[k] }))
-      }));
-    }
-    if (o.loopToggle) {
-      parts.push(`<button type="button" class="ws-loop" data-ws-loop aria-pressed="false">${ICON_LOOP}<span>${escapeHtml(s.loop)}</span></button>`);
-    }
-    parts.push("</div>");
-  }
-  if (typeChips || o.showCount) parts.push('<div class="ws-meta">');
-  if (typeChips) {
-    parts.push(`<div class="ws-types" role="group" aria-label="${escapeHtml(s.types)}"><button type="button" class="ws-chip" data-ws-type="" aria-pressed="true"><span class="ws-chip-label">${escapeHtml(s.all)}</span> <span class="ws-chip-count">${total}</span></button>` + f.types.map((t) => `<button type="button" class="ws-chip" data-ws-type="${escapeHtml(t.name)}" aria-pressed="false"><span class="ws-chip-label">${escapeHtml(t.name)}</span> <span class="ws-chip-count">${t.count}</span></button>`).join("") + "</div>");
-  }
-  if (o.showCount) parts.push(`<p class="ws-count" data-ws-count aria-live="polite">${escapeHtml(countText(total, total, s))}</p>`);
-  if (typeChips || o.showCount) parts.push("</div>");
-  parts.push("</div>");
+  const ctx = { o, s: o.strings, f: facets(list), total: list.length, id: o.idPrefix || idBase(list) };
   const page = o.pageSize > 0 ? o.pageSize : Infinity;
-  parts.push(`<ul class="ws-list ws-list--${o.player}" role="list" data-ws-list>` + list.map((sound, i) => renderRow(sound, i, o, i >= page)).join("") + "</ul>");
-  const more = total - Math.min(total, page);
-  parts.push(`<p class="ws-empty" data-ws-empty hidden>${escapeHtml(s.empty)} <button type="button" class="ws-clear" data-ws-clear>${escapeHtml(s.clear)}</button></p>`);
-  parts.push(`<button type="button" class="ws-more" data-ws-more${more > 0 ? "" : " hidden"}>${escapeHtml(fill(s.showMore, { count: Math.min(more, o.pageSize || more) }))}</button>`);
-  parts.push(`<div class="ws-engine${o.player === "strip" ? " ws-engine--strip" : ""}" data-ws-engine${o.player === "strip" ? "" : " hidden"}></div>`);
-  parts.push('<p class="ws-sr" data-ws-status aria-live="polite"></p>');
-  return parts.join("");
+  return renderToolbar(toolbarPlan(ctx.f, o), ctx) + h(
+    "ul",
+    { class: `ws-list ws-list--${o.player}`, role: "list", "data-ws-list": true },
+    list.map((sound, i) => renderRow(sound, i, o, i >= page))
+  ) + renderFooter(ctx);
 }
 function renderSoundsElement(sounds, options = {}, className = "") {
   const o = resolveRenderOptions(options);
   const cls = ["waveform-sounds", `waveform-sounds--${o.player}`, className].filter(Boolean).join(" ");
-  return `<div class="${escapeHtml(cls)}" data-waveform-sounds data-player="${o.player}">${renderSounds(sounds, options)}</div>`;
+  return h("div", { class: cls, "data-waveform-sounds": true, "data-player": o.player }, renderSounds(sounds, options));
 }

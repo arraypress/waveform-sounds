@@ -8,19 +8,35 @@ A searchable, filterable list of sounds (sample-pack previews) built on
   REAL `@arraypress/waveform-player` (a devDependency from npm), the rest against
   the stand-in in `test/setup.js`.
 - `npm run build` — iife, min, esm, cjs, no-autoinit (esm+cjs), render (esm+cjs), css.
-- `npm run size` — currently ~10.1 KB JS / ~1.9 KB CSS gzipped.
+- `npm run size` — currently ~13.9 KB JS / ~2.6 KB CSS gzipped.
 
-## Architecture (`src/js/`)
-- `data.js` — pure: peaks codec, key normalisation, durations, normalise,
-  manifest, facets, `matches`, `sortSounds`. No DOM.
-- `render.js` — pure: the component's markup as a string. **The markup is the
-  contract** between the server and the runtime: every class and `data-ws-*`
-  attribute it writes is read by `core.js`.
-- `draw.js` — the row waveform (canvas, resample, mirror/bars).
-- `core.js` — `WaveformSounds`: adopt-or-render, toolbar, paging, lazy
-  canvases (IntersectionObserver), one engine `WaveformPlayer`.
-- `entry.js` — the public surface (no auto-init); `index.js` adds the scan;
-  `render-entry.js` is the `/render` subpath.
+## Architecture (`src/js/`) — by layer
+
+```
+index.js · entry.js · render-entry.js    entry points (each is a build target)
+core/     WaveformSounds.js   the class: orchestration only
+          engine.js           the engine player's options + per-sound peaks
+          options.js          DEFAULT_OPTIONS, data-* parsing, merge
+data/     sounds.js           pure: normalise, peaks codec, keys, facets, filter, sort
+          url-state.js        pure: filters <-> the address
+          navigation.js       pure: key targets, seek steps, paging
+render/   markup.js           server-safe markup (toolbarPlan, renderMenu, renderRow…)
+          options.js          render options + validation (DOM-free)
+          html.js · icons.js · strings.js
+dom/      menus.js            the dropdown controller (+ pure optionMatches/stepIndex)
+          rows.js             row DOM: read back, index, order, visible
+          draw.js · colors.js canvas drawing; colour + page-surface resolution
+shared/   utils.js            clamp, pointerFraction, isTyping, emit, hashString
+```
+
+**Layering is enforced by imports, keep it:** `data/` and `shared/` import
+nothing local but each other; `render/` imports `data/`, `shared/` and
+itself (never `core/` or `dom/` — the `/render` entry must stay DOM-free);
+`dom/` may use `data/` and `render/`; `core/` uses everything. Anything that
+can be a pure function lives in `data/` (or `shared/`) with a unit test.
+Tests mirror the tree: `test/unit/<layer>/<module>.test.js` (pure modules
+run in the node environment), `test/runtime/` for the class and the real
+core. Every function and method carries a JSDoc block.
 
 ## Rules
 - **Never a WaveformPlayer per row.** A pack can have 300 sounds. Rows are

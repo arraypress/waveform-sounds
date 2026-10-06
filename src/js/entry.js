@@ -4,11 +4,11 @@
  *
  * @module entry
  */
-import {WaveformSounds, DEFAULT_OPTIONS} from './core.js';
+import {WaveformSounds, DEFAULT_OPTIONS} from './core/WaveformSounds.js';
 import {
     encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration,
-} from './data.js';
-import {renderSounds, renderSoundsElement, DEFAULT_STRINGS} from './render.js';
+} from './data/sounds.js';
+import {renderSounds, renderSoundsElement, DEFAULT_STRINGS} from './render/markup.js';
 
 WaveformSounds.utils = {encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration, renderSounds};
 WaveformSounds.DEFAULT_OPTIONS = DEFAULT_OPTIONS;

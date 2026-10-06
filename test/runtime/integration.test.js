@@ -4,7 +4,7 @@ import {describe, it, expect, beforeAll, afterAll, afterEach, vi} from 'vitest';
 // replaces it, and beforeAll re-asserts it so this file can't silently
 // fall back to the mock.
 import {WaveformPlayer} from '@arraypress/waveform-player';
-import {WaveformSounds} from '../src/js/entry.js';
+import {WaveformSounds} from '../../src/js/entry.js';
 
 /**
  * jsdom has no media pipeline, so <audio> gets just enough behaviour for
