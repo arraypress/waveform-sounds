@@ -14,7 +14,10 @@
  * @module render
  */
 
+import {escapeHtml} from '@arraypress/text';
 import {encodePeaks, facets, formatDuration, normalizeSounds, SORTS} from './data.js';
+
+export {escapeHtml};
 
 /** UI strings. Every visible or announced word, so a site can translate. */
 export const DEFAULT_STRINGS = {
@@ -66,15 +69,6 @@ export const RENDER_DEFAULTS = {
     maxTypeChips: 10,
 };
 
-/** Escape text for HTML content and double-quoted attributes. */
-export function escapeHtml(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
 
 /** Fill `{name}` placeholders. */
 export function fill(template, vars = {}) {

@@ -24,6 +24,7 @@ import {
 } from './data.js';
 import {availableSorts, countText, DEFAULT_STRINGS, fill, renderSounds, RENDER_DEFAULTS, resolveRenderOptions} from './render.js';
 import {drawRowWaveform, resample} from './draw.js';
+import {fold} from '@arraypress/text';
 
 const LOG = '[WaveformSounds]';
 
@@ -375,10 +376,10 @@ export class WaveformSounds {
 
     /** Narrow a menu to the options whose label contains `query`. */
     _filterMenu(menu, query) {
-        const q = String(query).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        const q = fold(String(query)).trim();
         let first = null, any = false;
         menu.querySelectorAll('[role="option"]').forEach((opt) => {
-            const text = opt.textContent.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+            const text = fold(opt.textContent);
             const show = !q || text.includes(q);
             opt.hidden = !show;
             if (show) { any = true; first ??= opt; }

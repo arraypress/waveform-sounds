@@ -1,3 +1,57 @@
+// ../../Core/text/src/index.js
+var HTML_ESCAPES = Object.freeze({
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;"
+});
+function escapeHtml(input) {
+  if (input === null || input === void 0) return "";
+  return String(input).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+}
+var NOT_A_WORD = /[^\p{L}\p{N}]+/u;
+var COMBINING_MARKS = /\p{Mn}+/gu;
+function fold(text) {
+  if (!text || typeof text !== "string") return "";
+  return text.toLowerCase().normalize("NFD").replace(COMBINING_MARKS, "");
+}
+function words(text) {
+  return fold(text).split(NOT_A_WORD).filter((word) => word !== "");
+}
+function editDistance(a, b) {
+  const s = Array.from(a ?? "");
+  const t = Array.from(b ?? "");
+  let before = [];
+  let previous = Array.from({ length: t.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= s.length; i++) {
+    const current = [i];
+    for (let j = 1; j <= t.length; j++) {
+      const cost = s[i - 1] === t[j - 1] ? 0 : 1;
+      current[j] = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + cost);
+      if (i > 1 && j > 1 && s[i - 1] === t[j - 2] && s[i - 2] === t[j - 1]) {
+        current[j] = Math.min(current[j], before[j - 2] + 1);
+      }
+    }
+    before = previous;
+    previous = current;
+  }
+  return previous[t.length];
+}
+function matchesAll(name, query, options = {}) {
+  const fuzzyFrom = options.fuzzyFrom ?? 4;
+  const folded = fold(name);
+  const nameWords = words(name);
+  return words(query).every((term) => {
+    if (folded.includes(term)) return true;
+    const length = Array.from(term).length;
+    if (length < fuzzyFrom) return false;
+    return nameWords.some(
+      (word) => editDistance(term, word) <= 1 || editDistance(term, Array.from(word).slice(0, length).join("")) <= 1
+    );
+  });
+}
+
 // src/js/data.js
 function encodePeaks(peaks) {
   if (!Array.isArray(peaks)) return "";
@@ -121,9 +175,6 @@ function facets(sounds) {
     hasDuration
   };
 }
-function fold(str) {
-  return String(str || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-}
 function matches(sound, filter = {}) {
   if (filter.type && sound.type !== filter.type) return false;
   if (filter.key && sound.key !== normalizeKey(filter.key)) return false;
@@ -133,14 +184,12 @@ function matches(sound, filter = {}) {
     if (filter.bpmMin != null && filter.bpmMin !== "" && sound.bpm < lo) return false;
     if (filter.bpmMax != null && filter.bpmMax !== "" && sound.bpm > hi) return false;
   }
-  const q = fold(filter.query).trim();
-  if (q) {
-    const hay = fold([sound.title, sound.type, sound.key, ...sound.tags || []].join(" "));
-    for (const word of q.split(/\s+/)) {
-      if (hay.includes(word)) continue;
-      if (/^\d+$/.test(word) && sound.bpm != null && Math.round(sound.bpm) === Number(word)) continue;
-      return false;
-    }
+  const terms = words(filter.query || "");
+  if (terms.length) {
+    const hay = [sound.title, sound.type, sound.key, ...sound.tags || []].join(" ");
+    const folded = fold(hay);
+    const rest = terms.filter((w) => !(/^\d+$/.test(w) && !folded.includes(w) && sound.bpm != null && Math.round(sound.bpm) === Number(w)));
+    if (rest.length && !matchesAll(hay, rest.join(" "))) return false;
   }
   return true;
 }
@@ -205,9 +254,6 @@ var RENDER_DEFAULTS = {
   columns: ["type", "bpm", "key", "duration"],
   maxTypeChips: 10
 };
-function escapeHtml(value) {
-  return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
 function fill(template, vars = {}) {
   return String(template).replace(/\{(\w+)\}/g, (m, k) => k in vars ? String(vars[k]) : m);
 }
@@ -745,10 +791,10 @@ var WaveformSounds = class _WaveformSounds {
   }
   /** Narrow a menu to the options whose label contains `query`. */
   _filterMenu(menu, query) {
-    const q = String(query).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const q = fold(String(query)).trim();
     let first = null, any = false;
     menu.querySelectorAll('[role="option"]').forEach((opt) => {
-      const text = opt.textContent.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const text = fold(opt.textContent);
       const show = !q || text.includes(q);
       opt.hidden = !show;
       if (show) {

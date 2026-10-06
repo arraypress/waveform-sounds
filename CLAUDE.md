@@ -50,6 +50,15 @@ second overwrites the global and `singlePlay` can't pause across them — the
 static `currentlyPlaying` is per copy. Wrappers must load the player only
 when `window.WaveformPlayer` is absent.
 
+## Shared helpers come from @arraypress/text
+`fold`, `words`, `matchesAll` (typo-tolerant search) and `escapeHtml` are
+imported from `@arraypress/text` and BUNDLED into dist (a devDependency:
+consumers install nothing). They need text **2.2.0**, unpublished as of
+2026-10-07: the devDependency is `file:../../Core/text` until then — publish
+text 2.2.0 FIRST, then switch it to `^2.2.0`. Not reused on purpose:
+the player's `formatTime` / `extractTitleFromUrl` (different output, and the
+player has no DOM-free entry the server renderer could import).
+
 ## Cross-repo
 Wrappers: `waveform-sounds-astro` / `-react` / `-svelte` / `-vue`. Not yet in
 the `waveform-release` skill's 15-package list — add it there on first publish.

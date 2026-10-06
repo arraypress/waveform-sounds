@@ -1,3 +1,16 @@
+// ../../Core/text/src/index.js
+var HTML_ESCAPES = Object.freeze({
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;"
+});
+function escapeHtml(input) {
+  if (input === null || input === void 0) return "";
+  return String(input).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+}
+
 // src/js/data.js
 function encodePeaks(peaks) {
   if (!Array.isArray(peaks)) return "";
@@ -170,9 +183,6 @@ var RENDER_DEFAULTS = {
   columns: ["type", "bpm", "key", "duration"],
   maxTypeChips: 10
 };
-function escapeHtml(value) {
-  return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
 function fill(template, vars = {}) {
   return String(template).replace(/\{(\w+)\}/g, (m, k) => k in vars ? String(vars[k]) : m);
 }

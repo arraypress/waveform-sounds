@@ -1,3 +1,5 @@
+import {fold, matchesAll, words} from '@arraypress/text';
+
 /**
  * Pure data helpers: no DOM, no window. Shared by the browser runtime and
  * the server renderer (`@arraypress/waveform-sounds/render`), so a wrapper
@@ -71,8 +73,7 @@ export function normalizeKey(key) {
     return root + acc + (minor ? 'm' : '');
 }
 
-/** Pitch-class order for sorting keys: C, C#, D … B, majors before minors. */
-const KEY_ORDER = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'];
+/** Pitch class of each root, for sorting keys: C, C#, D … B, majors before minors. */
 const KEY_PITCH = {C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11};
 
 /** Sort rank of a canonical key; unknown keys sort last. */
@@ -222,17 +223,14 @@ export function facets(sounds) {
     };
 }
 
-/** Case- and accent-insensitive comparison form. */
-function fold(str) {
-    return String(str || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-}
-
 /**
  * Does a sound match the filter? Every set criterion must hold.
  *
- * `query` matches the title, type, key and tags; several words must all
- * match (in any order), so "bass 128" finds 128 BPM bass loops. A number
- * in the query also matches the BPM exactly.
+ * `query` matches the title, type, key and tags with
+ * `@arraypress/text`'s `matchesAll`: every word, in any order, forgiving
+ * one typo in words of four letters or more ("drun" finds drum loops). A
+ * number in the query also matches the BPM exactly, so "bass 128" finds
+ * 128 BPM bass loops.
  *
  * @param {import('../../index').Sound} sound
  * @param {import('../../index').SoundsFilter} filter
@@ -248,14 +246,14 @@ export function matches(sound, filter = {}) {
         if (filter.bpmMin != null && filter.bpmMin !== '' && sound.bpm < lo) return false;
         if (filter.bpmMax != null && filter.bpmMax !== '' && sound.bpm > hi) return false;
     }
-    const q = fold(filter.query).trim();
-    if (q) {
-        const hay = fold([sound.title, sound.type, sound.key, ...(sound.tags || [])].join(' '));
-        for (const word of q.split(/\s+/)) {
-            if (hay.includes(word)) continue;
-            if (/^\d+$/.test(word) && sound.bpm != null && Math.round(sound.bpm) === Number(word)) continue;
-            return false;
-        }
+    const terms = words(filter.query || '');
+    if (terms.length) {
+        const hay = [sound.title, sound.type, sound.key, ...(sound.tags || [])].join(' ');
+        const folded = fold(hay);
+        // A number naming this sound's BPM is satisfied; the rest is text.
+        const rest = terms.filter((w) => !(/^\d+$/.test(w) && !folded.includes(w)
+            && sound.bpm != null && Math.round(sound.bpm) === Number(w)));
+        if (rest.length && !matchesAll(hay, rest.join(' '))) return false;
     }
     return true;
 }
@@ -284,4 +282,3 @@ export function sortSounds(sounds, by = 'default') {
     return list.map((x) => x.s);
 }
 
-export {KEY_ORDER};

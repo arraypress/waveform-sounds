@@ -100,6 +100,13 @@ describe('matches', () => {
         expect(ids({query: 'reese'})).toEqual(['1.mp3']);
         expect(ids({query: 'fm'})).toEqual(['1.mp3']);
     });
+    it('forgives one typo in longer words (via @arraypress/text matchesAll)', () => {
+        expect(ids({query: 'baas loop'})).toEqual(['1.mp3', '3.mp3']);
+        expect(ids({query: 'drun'})).toEqual(['2.mp3']);
+        expect(ids({query: 'bas'})).toEqual(['1.mp3', '3.mp3']); // a prefix still matches
+        expect(ids({query: 'xyzzy'})).toEqual([]);
+    });
+
     it('matches a number against the BPM', () => {
         expect(ids({query: 'bass 124'})).toEqual(['3.mp3']);
     });
