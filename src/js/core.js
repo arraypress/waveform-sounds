@@ -276,6 +276,16 @@ export class WaveformSounds {
         $.sort?.addEventListener('change', () => this.setSort($.sort.value), sig);
 
         root.addEventListener('keydown', (e) => this._onKey(e), sig);
+
+        // Any OTHER player starting (every WaveformPlayer's play event
+        // bubbles to the document) pauses the list. The engine's
+        // singlePlay only covers players that also use singlePlay: a
+        // WaveformBar's player doesn't, so without this the bar and the
+        // list could play at once.
+        document.addEventListener('waveformplayer:play', (e) => {
+            const p = e.detail?.player;
+            if (p && p !== this.engine && this.playing) this.pause();
+        }, sig);
     }
 
     _onKey(e) {

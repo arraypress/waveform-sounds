@@ -119,6 +119,19 @@ describe('against the real WaveformPlayer', () => {
         player.destroy();
     });
 
+    it('another player starting pauses the list, even without singlePlay', async () => {
+        const other = document.createElement('div');
+        document.body.appendChild(other);
+        const player = new WaveformPlayer(other, {url: '/other.mp3', waveform: [0.5, 0.5], singlePlay: false});
+        const {ws} = await mount();
+        ws.play(0);
+        await flush(); metadata(ws); await flush(); await flush();
+        expect(ws.playing).toBe(true);
+        player.play();
+        expect(ws.playing).toBe(false);
+        player.destroy();
+    });
+
     it('a strip layout shows the engine as a player in the list', async () => {
         const {el, ws} = await mount({player: 'strip'});
         ws.play(0);

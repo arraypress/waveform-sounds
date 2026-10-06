@@ -613,6 +613,10 @@ var WaveformSounds = class _WaveformSounds {
     $.bpmMax?.addEventListener("input", bpm, sig);
     $.sort?.addEventListener("change", () => this.setSort($.sort.value), sig);
     root.addEventListener("keydown", (e) => this._onKey(e), sig);
+    document.addEventListener("waveformplayer:play", (e) => {
+      const p = e.detail?.player;
+      if (p && p !== this.engine && this.playing) this.pause();
+    }, sig);
   }
   _onKey(e) {
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
