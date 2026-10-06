@@ -2,7 +2,7 @@
  * @arraypress/waveform-sounds — hand-written types.
  *
  * The four `waveform-sounds-*` wrappers derive their prop types from
- * `WaveformSoundsOptions` here. Add or rename an option in `src/js/core.js`
+ * `WaveformSoundsOptions` here. Add or rename an option in `src/js/core/options.js`
  * (`DEFAULT_OPTIONS`) and in this file in the same change.
  */
 

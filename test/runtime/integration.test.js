@@ -139,6 +139,9 @@ describe('against the real WaveformPlayer', () => {
         const slot = el.querySelector('[data-ws-engine]');
         expect(slot.hidden).toBe(false);
         expect(slot.querySelector('canvas')).not.toBeNull();
+        // The player resets its container's className; it must not be the slot.
+        expect(slot.classList.contains('ws-engine--strip')).toBe(true);
+        expect(slot.querySelector('[data-ws-engine-mount]').classList.contains('waveform-player')).toBe(true);
     });
 
     it('destroy() tears the engine down', async () => {

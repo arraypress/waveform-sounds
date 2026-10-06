@@ -1587,6 +1587,25 @@ var WaveformSounds = class _WaveformSounds {
     return this.options.playerClass || (typeof window !== "undefined" ? window.WaveformPlayer : null) || null;
   }
   /**
+   * The element the engine mounts into: a child of the engine slot, never
+   * the slot itself. WaveformPlayer resets its container's `className`,
+   * which would strip `ws-engine--strip` (and with it the docked styling).
+   * Made here rather than in the markup so server-rendered HTML from any
+   * version works.
+   * @returns {HTMLElement}
+   * @private
+   */
+  _engineMount() {
+    const slot = this.$.engine;
+    let mount = slot.querySelector(":scope > [data-ws-engine-mount]");
+    if (!mount) {
+      mount = document.createElement("div");
+      mount.setAttribute("data-ws-engine-mount", "");
+      slot.appendChild(mount);
+    }
+    return mount;
+  }
+  /**
    * Build the engine once (it holds no audio until a play).
    * @returns {Object|null} The engine, or null without a player class.
    * @private
@@ -1598,7 +1617,7 @@ var WaveformSounds = class _WaveformSounds {
       console.error(`${LOG} @arraypress/waveform-player is required: load it before playing (or pass playerClass).`);
       return null;
     }
-    this.engine = new Player(this.$.engine, engineOptions(this.options.playerOptions, this.render.player, {
+    this.engine = new Player(this._engineMount(), engineOptions(this.options.playerOptions, this.render.player, {
       onLoad: () => this._onEngineLoad(),
       onPlay: () => this._setPlaying(true),
       onPause: () => this._setPlaying(false),
@@ -1854,6 +1873,7 @@ var WaveformSounds = class _WaveformSounds {
     } catch {
     }
     this.engine = null;
+    this.$?.engine?.querySelector(":scope > [data-ws-engine-mount]")?.remove();
     if (this._originalHTML != null) this.container.innerHTML = this._originalHTML;
     if (this._addedClasses?.length) this.container.classList.remove(...this._addedClasses);
     if (this._autoSurface) this.container.style.removeProperty("--ws-surface");

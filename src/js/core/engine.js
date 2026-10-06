@@ -1,7 +1,7 @@
 /**
  * The audio engine: ONE `WaveformPlayer` (self mode) that every sound in
  * the list plays through. These helpers decide how it's configured and
- * what it's given per sound; `core.js` owns its lifecycle.
+ * what it's given per sound; `WaveformSounds.js` owns its lifecycle.
  *
  * @module engine
  */

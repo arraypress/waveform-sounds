@@ -1,6 +1,6 @@
 {
   "name": "@arraypress/waveform-sounds",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Searchable, filterable sound list for WaveformPlayer: audition hundreds of sample previews with inline waveforms, keyboard navigation and one shared audio engine.",
   "type": "module",
   "main": "dist/waveform-sounds.cjs",
