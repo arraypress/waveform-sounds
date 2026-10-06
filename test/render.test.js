@@ -79,6 +79,13 @@ describe('renderSounds (server)', () => {
         expect([...html.matchAll(/data-ws-menu="sort"[\s\S]*?<\/ul>/g)][0][0].match(/data-value="(\w+)"/g)).toEqual(['data-value="title"', 'data-value="default"']);
     });
 
+    it('a sound with a download link gets a download button; others get nothing', () => {
+        const html = renderSounds([{url: '/a.mp3', title: 'Kick', download: '/free/kick.wav'}, {url: '/b.mp3', title: 'Snare'}]);
+        expect(html).toContain('<a class="ws-download" href="/free/kick.wav" download aria-label="Download Kick">');
+        expect(html.match(/ws-download/g)).toHaveLength(1);
+        expect(html).toContain('data-download="/free/kick.wav"');
+    });
+
     it('idPrefix makes two lists of the same sounds distinct', () => {
         expect(renderSounds(sounds, {idPrefix: 'a'})).toContain('id="a-key-list"');
         expect(renderSounds(sounds, {idPrefix: 'b'})).toContain('id="b-key-list"');

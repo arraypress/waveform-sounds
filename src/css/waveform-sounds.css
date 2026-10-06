@@ -278,7 +278,8 @@
 .ws-loop:focus-visible,
 .ws-more:focus-visible,
 .ws-clear:focus-visible,
-.ws-wave:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 2px; }
+.ws-wave:focus-visible,
+.ws-download:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 2px; }
 
 .ws-cell { min-width: 0; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ws-title { flex: 1.4 1 9rem; font-weight: 500; }
@@ -299,6 +300,19 @@
     border-radius: 4px;
 }
 .ws-canvas { display: block; width: 100%; height: 100%; }
+.ws-download {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    color: var(--ws-muted);
+    font-size: 1.05rem;
+    text-decoration: none;
+    transition: color 0.15s, background 0.15s;
+}
+.ws-download:hover { color: inherit; background: var(--ws-hover); }
 
 /* The meta cells are columns of the row on wide lists... */
 .ws-cells { display: contents; }
@@ -309,8 +323,8 @@
 @container (max-width: 560px) {
     .ws-row {
         display: grid;
-        grid-template-columns: auto minmax(0, 1fr);
-        grid-template-areas: "play title" "play cells" "play wave";
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-areas: "play title dl" "play cells cells" "play wave wave";
         column-gap: 0.85rem;
         row-gap: 0.2rem;
         padding: 0.7rem 0.5rem;
@@ -322,6 +336,7 @@
     .ws-cells > .ws-cell:empty { display: none; }
     .ws-cells > .ws-cell + .ws-cell:not(:empty)::before { content: '·'; margin-right: 0.5rem; opacity: 0.6; }
     .ws-wave { grid-area: wave; margin-top: 0.35rem; min-width: 0; }
+    .ws-download { grid-area: dl; align-self: start; }
 }
 
 /* ── Footer bits ─────────────────────────────────────────────────────── */
@@ -352,7 +367,7 @@
 
 /* Touch: 44px targets, and 16px inputs (iOS zooms into anything smaller). */
 @media (pointer: coarse) {
-    .ws-play { width: 2.75rem; height: 2.75rem; }
+    .ws-play, .ws-download { width: 2.75rem; height: 2.75rem; }
     .ws-chip { height: 2.5rem; }
     .ws-search-input, .ws-menu-search, .ws-bpm-range input { font-size: 16px; }
     .ws-menu-option { padding: 0.75rem 0.6rem; }

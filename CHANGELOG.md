@@ -31,6 +31,11 @@ project adheres to [Semantic Versioning](https://semver.org/).
 - Every control is optional: `search`, `filters`, `sorts` (which orders,
   in order; the first is the starting order), `loopToggle`, `showCount`,
   `columns`.
+- Optional per-sound `download` link (a download button on that row only).
+- `urlState`: the filters and sort live in the address (shareable,
+  survive a refresh), optionally prefixed for several lists on a page.
+- The engine is built when the list is ready (no audio loaded), so
+  waveform-tracker and other `waveformplayer:ready` hooks see the first play.
 - Colour-agnostic by default: the "on" states are inverted (text colour as
   fill, page surface as ink). The surface is detected (`--ws-surface`) and
   re-read on theme flips; set it yourself for the first server paint.

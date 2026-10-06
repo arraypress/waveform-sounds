@@ -290,6 +290,13 @@ describe('filtering, sorting and paging', () => {
 });
 
 describe('playback', () => {
+    it('builds the engine at ready when the player is on the page, loading nothing', async () => {
+        await make();
+        expect(MockWaveformPlayer.instances).toHaveLength(1);
+        expect(MockWaveformPlayer.instances[0].calls.loadTrack).toHaveLength(0);
+        expect(MockWaveformPlayer.instances[0].options.url).toBeUndefined();
+    });
+
     it('plays through ONE self-mode engine, passing the row peaks', async () => {
         const ws = await make();
         rows()[0].querySelector('.ws-play').click();
@@ -450,6 +457,77 @@ describe('playback', () => {
     });
 });
 
+describe('download links', () => {
+    it('a click on the download link does not toggle playback', async () => {
+        const ws = new WaveformSounds(host, {sounds: [{url: '/a.mp3', title: 'Kick', download: '/free/kick.wav'}]});
+        await ws.ready;
+        const link = host.querySelector('.ws-download');
+        link.addEventListener('click', (e) => e.preventDefault()); // jsdom would navigate
+        link.click();
+        await settle();
+        expect(ws.current).toBeNull();
+        expect(ws.sounds[0].download).toBe('/free/kick.wav');
+    });
+
+    it('adopted rows keep their download link', async () => {
+        host.innerHTML = renderSoundsElement([{url: '/a.mp3', download: '/free/a.wav'}]);
+        const ws = new WaveformSounds(host.firstElementChild);
+        await ws.ready;
+        expect(ws.sounds[0].download).toBe('/free/a.wav');
+    });
+});
+
+describe('urlState', () => {
+    const at = (q) => history.replaceState(null, '', `/pack${q}`);
+    afterEach(() => at(''));
+
+    it('reads the filters and sort from the address on load', async () => {
+        at('?q=loop&type=Bass&bpm=125-130&sort=title&other=1');
+        const ws = await make({urlState: true});
+        expect(ws.filter).toMatchObject({query: 'loop', type: 'Bass', bpmMin: '125', bpmMax: '130'});
+        expect(ws.sortBy).toBe('title');
+        expect(visibleTitles()).toEqual(['Bass Loop 01']);
+        expect(host.querySelector('[data-ws-search]').value).toBe('loop');
+        expect(host.querySelector('[data-ws-type="Bass"]').getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('ignores values the data cannot use', async () => {
+        at('?type=Nope&sort=bogus&key=Q');
+        const ws = await make({urlState: true});
+        expect(ws.filter.type).toBe('');
+        expect(ws.sortBy).toBe('default');
+        expect(visibleTitles()).toHaveLength(4);
+    });
+
+    it('writes changes back with replaceState, keeping other parameters', async () => {
+        vi.useFakeTimers();
+        at('?other=1');
+        const before = history.length;
+        const ws = new WaveformSounds(host, {sounds: SOUNDS, urlState: true});
+        await vi.runAllTimersAsync();
+        ws.setFilter({query: 'bass', key: 'Fm'});
+        ws.setSort('bpm');
+        vi.advanceTimersByTime(300);
+        expect(location.search).toBe('?other=1&q=bass&key=Fm&sort=bpm');
+        ws.clearFilters();
+        vi.advanceTimersByTime(300);
+        expect(location.search).toBe('?other=1&sort=bpm');
+        expect(history.length).toBe(before);
+    });
+
+    it('a string prefixes the parameter names', async () => {
+        at('?pack-type=Drums');
+        const ws = await make({urlState: 'pack'});
+        expect(ws.filter.type).toBe('Drums');
+    });
+
+    it('is off by default', async () => {
+        at('?type=Drums');
+        const ws = await make();
+        expect(ws.filter.type).toBe('');
+    });
+});
+
 describe('keyboard', () => {
     const key = (el, k) => el.dispatchEvent(new KeyboardEvent('keydown', {key: k, bubbles: true, cancelable: true}));
 
@@ -491,7 +569,7 @@ describe('keyboard', () => {
         first.focus();
         key(first, 'ArrowDown');
         expect(document.activeElement).toBe(rows()[1].querySelector('.ws-play'));
-        expect(MockWaveformPlayer.instances).toHaveLength(0); // nothing playing: just moves
+        expect(MockWaveformPlayer.instances[0].calls.loadTrack).toHaveLength(0); // nothing playing: just moves
         ws.play(1);
         await settle();
         key(rows()[1].querySelector('.ws-play'), 'ArrowDown');

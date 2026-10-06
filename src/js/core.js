@@ -20,7 +20,7 @@
  */
 
 import {
-    decodePeaks, facets, matches, normalizeSound, normalizeSounds, parseManifest, sortSounds, SORTS,
+    decodePeaks, facets, matches, normalizeKey, normalizeSound, normalizeSounds, parseManifest, sortSounds, SORTS,
 } from './data.js';
 import {availableSorts, countText, DEFAULT_STRINGS, fill, renderSounds, RENDER_DEFAULTS, resolveRenderOptions} from './render.js';
 import {drawRowWaveform, resample} from './draw.js';
@@ -41,6 +41,7 @@ export const DEFAULT_OPTIONS = {
     autoAdvance: false,
     arrowAudition: true,
     idPrefix: null,
+    urlState: false,
     playerOptions: null,
     playerClass: null,
     strings: null,
@@ -66,6 +67,7 @@ function readDataOptions(el) {
     if (d.showCount !== undefined) out.showCount = bool(d.showCount);
     if (d.menuSearch !== undefined && d.menuSearch !== '') out.menuSearch = Number(d.menuSearch);
     if (d.idPrefix) out.idPrefix = d.idPrefix;
+    if (d.urlState !== undefined) out.urlState = d.urlState === '' || d.urlState === 'true' ? true : d.urlState === 'false' ? false : d.urlState;
     if (d.loopToggle !== undefined) out.loopToggle = bool(d.loopToggle);
     if (d.pageSize !== undefined && d.pageSize !== '') out.pageSize = Number(d.pageSize);
     if (d.maxTypeChips !== undefined && d.maxTypeChips !== '') out.maxTypeChips = Number(d.maxTypeChips);
@@ -180,11 +182,19 @@ export class WaveformSounds {
         this._setLoop(this.loop);
         // The starting order is the first one offered (unless setSort()
         // already chose one).
-        if (!this._sortSet) this.sortBy = availableSorts(this.render.sorts, facets(this.sounds))[0] || 'default';
+        this._sorts = availableSorts(this.render.sorts, facets(this.sounds));
+        if (!this._sortSet) this.sortBy = this._sorts[0] || 'default';
+        this._readUrl();
         // A setFilter()/setSort() made before the list existed: show it in
         // the controls, and lay the rows out in that order.
         this._syncControls();
         this._apply({resort: this.sortBy !== 'default'});
+        // Build the engine now (no audio is loaded until a play) when the
+        // player is already on the page. Anything that hooks players on
+        // their `waveformplayer:ready` — waveform-tracker, analytics — then
+        // attaches BEFORE the first play; built on first play, that first
+        // sound went untracked (verified with waveform-tracker in Chrome).
+        if (this.options.playerClass || (typeof window !== 'undefined' && window.WaveformPlayer)) this._ensureEngine();
         this._emit('ready', {sounds: this.sounds.length});
         if (typeof this.options.onReady === 'function') this.options.onReady(this);
     }
@@ -203,7 +213,7 @@ export class WaveformSounds {
             const d = row.dataset;
             const s = normalizeSound({
                 id: d.wsId, url: d.url, title: d.title, type: d.type, bpm: d.bpm, key: d.key,
-                duration: d.duration, tags: d.tags, peaks: d.peaks, waveform: d.waveform,
+                duration: d.duration, tags: d.tags, peaks: d.peaks, waveform: d.waveform, download: d.download,
             }, out.length);
             if (!s) { row.remove(); continue; }
             row.dataset.wsIndex = String(out.length);
@@ -247,7 +257,7 @@ export class WaveformSounds {
             if (t.closest('[data-ws-clear]')) return this.clearFilters();
             if (t.closest('[data-ws-loop]')) return this.setLoop(!this.loop);
             const row = t.closest('[data-ws-index]');
-            if (!row || t.closest('.ws-wave')) return;
+            if (!row || t.closest('.ws-wave, .ws-download')) return;
             this.toggle(Number(row.dataset.wsIndex));
             this._focusRowQuietly(row);
         }, sig);
@@ -535,6 +545,60 @@ export class WaveformSounds {
         return '#fff';
     }
 
+    /* ── Filters in the URL (urlState) ───────────────────────────────── */
+
+    /** Query parameter names, or null when urlState is off. A string
+     *  urlState prefixes them, so two lists on a page don't collide. */
+    get _urlKeys() {
+        const u = this.options.urlState;
+        if (!u || typeof window === 'undefined') return null;
+        const p = typeof u === 'string' ? `${u}-` : '';
+        return {q: `${p}q`, type: `${p}type`, key: `${p}key`, bpm: `${p}bpm`, sort: `${p}sort`};
+    }
+
+    /** Apply `?q=&type=&key=&bpm=120-130&sort=` from the address. Values
+     *  the data can't use (an unknown type, a sort that isn't offered) are
+     *  ignored rather than producing an empty list. */
+    _readUrl() {
+        const k = this._urlKeys;
+        if (!k) return;
+        const sp = new URLSearchParams(location.search);
+        const f = facets(this.sounds);
+        const patch = {};
+        if (sp.get(k.q)) patch.query = sp.get(k.q);
+        const type = sp.get(k.type);
+        if (type && f.types.some((t) => t.name === type)) patch.type = type;
+        const key = sp.get(k.key);
+        if (key && f.keys.includes(normalizeKey(key))) patch.key = normalizeKey(key);
+        const bpm = sp.get(k.bpm)?.match(/^(\d*)-(\d*)$/);
+        if (bpm) { patch.bpmMin = bpm[1]; patch.bpmMax = bpm[2]; }
+        this.filter = {...this.filter, ...patch};
+        const sort = sp.get(k.sort);
+        if (sort && this._sorts.includes(sort)) { this.sortBy = sort; this._sortSet = true; }
+    }
+
+    _queueUrl() {
+        if (!this._urlKeys) return;
+        clearTimeout(this._urlTimer);
+        this._urlTimer = setTimeout(() => this._writeUrl(), 250);
+    }
+
+    /** Keep the address in step (replaceState: filtering adds no history
+     *  entries, and other parameters and the hash are kept). */
+    _writeUrl() {
+        const k = this._urlKeys;
+        if (!k || this.destroyed) return;
+        const url = new URL(location.href);
+        const f = this.filter;
+        const set = (name, v) => (v ? url.searchParams.set(name, v) : url.searchParams.delete(name));
+        set(k.q, f.query.trim());
+        set(k.type, f.type);
+        set(k.key, f.key);
+        set(k.bpm, f.bpmMin !== '' || f.bpmMax !== '' ? `${f.bpmMin ?? ''}-${f.bpmMax ?? ''}` : '');
+        set(k.sort, this.sortBy !== (this._sorts?.[0] || 'default') ? this.sortBy : '');
+        if (url.href !== location.href) history.replaceState(history.state, '', url);
+    }
+
     /* ── Filtering, sorting, paging ───────────────────────────────────── */
 
     /** The sounds that pass the filter, in the current sort order. */
@@ -614,6 +678,7 @@ export class WaveformSounds {
         }
         if ($.empty) $.empty.hidden = shown.length > 0;
         if ($.count) $.count.textContent = countText(shown.length, this.sounds.length, this.strings);
+        this._queueUrl();
         this._emit('filter', {visible: shown.length, total: this.sounds.length, filter: {...this.filter}, sort: this.sortBy});
         if (typeof this.options.onFilter === 'function') this.options.onFilter(shown, this);
     }
@@ -898,6 +963,7 @@ export class WaveformSounds {
         this._ro?.disconnect();
         this._mo?.disconnect();
         if (this._raf) cancelAnimationFrame(this._raf);
+        clearTimeout(this._urlTimer);
         try { this.engine?.destroy(); } catch { /* engine already gone */ }
         this.engine = null;
         if (this._originalHTML != null) this.container.innerHTML = this._originalHTML;

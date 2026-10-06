@@ -42,6 +42,7 @@ export const DEFAULT_STRINGS = {
     play: 'Play {title}',
     pause: 'Pause {title}',
     seek: 'Seek {title}',
+    download: 'Download {title}',
     count: '{count} sounds',
     countOne: '1 sound',
     countFiltered: '{count} of {total} sounds',
@@ -96,6 +97,7 @@ const ICON_PAUSE = '<svg class="ws-icon ws-icon-pause" viewBox="0 0 24 24" aria-
 const ICON_SEARCH = '<svg class="ws-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10.5 4a6.5 6.5 0 1 0 4.03 11.6l4.43 4.43 1.41-1.41-4.43-4.43A6.5 6.5 0 0 0 10.5 4zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z"/></svg>';
 const ICON_CHEVRON = '<svg class="ws-icon ws-menu-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 8.6 12 14.2l5.6-5.6L19 10l-7 7-7-7z"/></svg>';
 const ICON_CHECK = '<svg class="ws-icon ws-menu-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 11-11-1.4-1.4z"/></svg>';
+const ICON_DOWNLOAD = '<svg class="ws-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 4h2v8.6l3.3-3.3 1.4 1.4L12 16.4l-5.7-5.7 1.4-1.4 3.3 3.3zM5 18h14v2H5z"/></svg>';
 const ICON_LOOP = '<svg class="ws-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17 4l3 3-3 3V8H8a3 3 0 0 0-3 3v1H3v-1a5 5 0 0 1 5-5h9V4zM7 20l-3-3 3-3v2h9a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5H7v2z"/></svg>';
 
 /**
@@ -141,6 +143,7 @@ export function renderRow(sound, index, o, hidden = false) {
         sound.tags?.length ? `data-tags="${escapeHtml(sound.tags.join(','))}"` : '',
         sound.peaks ? `data-peaks="${encodePeaks(sound.peaks)}"` : '',
         sound.waveform ? `data-waveform="${escapeHtml(sound.waveform)}"` : '',
+        sound.download ? `data-download="${escapeHtml(sound.download)}"` : '',
         hidden ? 'hidden' : '',
     ].filter(Boolean).join(' ');
 
@@ -162,6 +165,9 @@ export function renderRow(sound, index, o, hidden = false) {
         // (each is a column), one line under the title on narrow ones.
         + (cols ? `<span class="ws-cells">${cols}</span>` : '')
         + wave
+        // Optional, per sound: a plain link (a free sample, the .mid of a
+        // MIDI preview). Rows without one carry no element at all.
+        + (sound.download ? `<a class="ws-download" href="${escapeHtml(sound.download)}" download aria-label="${escapeHtml(fill(s.download, {title: sound.title}))}">${ICON_DOWNLOAD}</a>` : '')
         + `</li>`;
 }
 

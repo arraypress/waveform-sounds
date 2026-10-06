@@ -30,6 +30,10 @@ export interface SoundInput {
     /** Full-resolution peaks for the `strip` player (a waveform-gen `.json`
      *  URL or an array). */
     waveform?: string | number[];
+    /** Optional download link for this sound (a free sample, the `.mid` of
+     *  a MIDI preview). Rows with one get a download button; rows without
+     *  carry nothing. A plain `<a download>`: gating is the site's job. */
+    download?: string;
     /** Stable id for `play('id')`. Defaults to `sound-<n>`, 1-based
      *  (`sound-1` is the first sound). */
     id?: string;
@@ -47,6 +51,7 @@ export interface Sound {
     tags: string[];
     peaks: number[] | null;
     waveform: string | null;
+    download: string | null;
 }
 
 /** What `waveform-gen --manifest` writes (a bare array also works). */
@@ -100,6 +105,7 @@ export interface WaveformSoundsStrings {
     play: string;
     pause: string;
     seek: string;
+    download: string;
     count: string;
     countOne: string;
     countFiltered: string;
@@ -140,6 +146,12 @@ export interface WaveformSoundsOptions {
      *  else a hash of the sounds — so two lists of the SAME sounds on one
      *  page each need one (or an `id`). Wrappers pass a framework-unique id. */
     idPrefix?: string;
+    /** Keep the filters in the address (`?q=bass&type=Bass+loops&key=Fm&
+     *  bpm=120-130&sort=bpm`), so a filtered list can be shared and survives
+     *  a refresh. `true` uses those names; a string prefixes them
+     *  (`'pack'` → `pack-q`, `pack-type`, …) for several lists on a page.
+     *  Uses replaceState: filtering adds no history entries. Default false. */
+    urlState?: boolean | string;
     /** Show the Loop toggle. Default true. */
     loopToggle?: boolean;
     /** Up to this many types show as chips; more become a "Type" menu

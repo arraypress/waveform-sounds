@@ -113,7 +113,8 @@ function normalizeSound(input, index, peakScale = 1) {
     duration: parseDuration(input.duration),
     tags,
     peaks: decodePeaks(input.peaks, peakScale),
-    waveform: input.waveform ? String(input.waveform) : null
+    waveform: input.waveform ? String(input.waveform) : null,
+    download: input.download ? String(input.download) : null
   };
 }
 function parseManifest(manifest) {
@@ -183,6 +184,7 @@ var DEFAULT_STRINGS = {
   play: "Play {title}",
   pause: "Pause {title}",
   seek: "Seek {title}",
+  download: "Download {title}",
   count: "{count} sounds",
   countOne: "1 sound",
   countFiltered: "{count} of {total} sounds",
@@ -218,6 +220,7 @@ var ICON_PAUSE = '<svg class="ws-icon ws-icon-pause" viewBox="0 0 24 24" aria-hi
 var ICON_SEARCH = '<svg class="ws-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10.5 4a6.5 6.5 0 1 0 4.03 11.6l4.43 4.43 1.41-1.41-4.43-4.43A6.5 6.5 0 0 0 10.5 4zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z"/></svg>';
 var ICON_CHEVRON = '<svg class="ws-icon ws-menu-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 8.6 12 14.2l5.6-5.6L19 10l-7 7-7-7z"/></svg>';
 var ICON_CHECK = '<svg class="ws-icon ws-menu-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 11-11-1.4-1.4z"/></svg>';
+var ICON_DOWNLOAD = '<svg class="ws-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 4h2v8.6l3.3-3.3 1.4 1.4L12 16.4l-5.7-5.7 1.4-1.4 3.3 3.3zM5 18h14v2H5z"/></svg>';
 var ICON_LOOP = '<svg class="ws-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17 4l3 3-3 3V8H8a3 3 0 0 0-3 3v1H3v-1a5 5 0 0 1 5-5h9V4zM7 20l-3-3 3-3v2h9a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5H7v2z"/></svg>';
 function resolveRenderOptions(options = {}) {
   const o = { ...RENDER_DEFAULTS, ...stripUndefined(options) };
@@ -251,6 +254,7 @@ function renderRow(sound, index, o, hidden = false) {
     sound.tags?.length ? `data-tags="${escapeHtml(sound.tags.join(","))}"` : "",
     sound.peaks ? `data-peaks="${encodePeaks(sound.peaks)}"` : "",
     sound.waveform ? `data-waveform="${escapeHtml(sound.waveform)}"` : "",
+    sound.download ? `data-download="${escapeHtml(sound.download)}"` : "",
     hidden ? "hidden" : ""
   ].filter(Boolean).join(" ");
   const cols = o.columns.map((c) => {
@@ -260,7 +264,7 @@ function renderRow(sound, index, o, hidden = false) {
     return `<span class="ws-cell ws-duration">${escapeHtml(formatDuration(sound.duration))}</span>`;
   }).join("");
   const wave = o.player === "inline" ? `<span class="ws-wave" role="slider" aria-label="${escapeHtml(fill(s.seek, { title: sound.title }))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="-1"><canvas class="ws-canvas" aria-hidden="true"></canvas></span>` : "";
-  return `<li ${attrs}><button type="button" class="ws-play" aria-pressed="false" aria-label="${escapeHtml(fill(s.play, { title: sound.title }))}">${ICON_PLAY}${ICON_PAUSE}</button><span class="ws-cell ws-title">${escapeHtml(sound.title)}</span>` + (cols ? `<span class="ws-cells">${cols}</span>` : "") + wave + `</li>`;
+  return `<li ${attrs}><button type="button" class="ws-play" aria-pressed="false" aria-label="${escapeHtml(fill(s.play, { title: sound.title }))}">${ICON_PLAY}${ICON_PAUSE}</button><span class="ws-cell ws-title">${escapeHtml(sound.title)}</span>` + (cols ? `<span class="ws-cells">${cols}</span>` : "") + wave + (sound.download ? `<a class="ws-download" href="${escapeHtml(sound.download)}" download aria-label="${escapeHtml(fill(s.download, { title: sound.title }))}">${ICON_DOWNLOAD}</a>` : "") + `</li>`;
 }
 function availableSorts(sorts, f) {
   return sorts.filter((k) => k === "default" || k === "title" || k === "bpm" && f.bpm || k === "key" && f.keys.length || k === "duration" && f.hasDuration);

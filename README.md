@@ -56,6 +56,41 @@ Every control can go. No BPM anywhere:
 {filters: ['type', 'key'], columns: ['type', 'key', 'duration'], sorts: ['default', 'title', 'key']}
 ```
 
+## Download links
+
+Optional, per sound — a free sample, the `.mid` of a MIDI preview. Rows
+with one get a download button; rows without carry nothing:
+
+```js
+{url: '/previews/kick-01.mp3', title: 'Kick 01', download: '/free/kick-01.wav'}
+```
+
+It's a plain `<a download>`: gating (an email, a login) is the site's job.
+
+## Filters in the address
+
+`urlState: true` keeps the filters in the URL —
+`?q=bass&type=Bass+loops&key=Fm&bpm=120-130&sort=bpm` — so a filtered list
+can be shared and survives a refresh. `urlState: 'pack'` prefixes the names
+(`pack-q`, `pack-type`, …) when a page has more than one list. It uses
+`replaceState`, so filtering adds no back-button entries; values the data
+can't use are ignored.
+
+## Which sounds get played (analytics)
+
+The list plays through a regular `WaveformPlayer`, so
+[`@arraypress/waveform-tracker`](https://www.npmjs.com/package/@arraypress/waveform-tracker)
+tracks it with no extra code — each event carries that sound's `url` and
+`title`:
+
+```js
+import WaveformTracker from '@arraypress/waveform-tracker';
+WaveformTracker.init({endpoint: '/api/listens', events: {play: 3, listen: 15}});
+```
+
+(The engine is built when the list is ready, so the tracker is attached
+before the first play.)
+
 ## Keyboard
 
 | Key | Does |

@@ -67,12 +67,12 @@ function metadata(ws, duration = 8) {
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 describe('against the real WaveformPlayer', () => {
-    it('constructs the engine lazily, in self mode, without errors', async () => {
+    it('builds the engine when the list is ready (no audio loaded), in self mode, without errors', async () => {
         const err = vi.spyOn(console, 'error').mockImplementation(() => {});
         const {ws} = await mount();
-        expect(ws.engine).toBeNull();
-        ws.play(0);
         expect(ws.engine).toBeInstanceOf(WaveformPlayer);
+        expect(ws.engine.audio.getAttribute('src') || '').toBe('');
+        ws.play(0);
         expect(ws.engine.options.audioMode).toBe('self');
         await flush();
         metadata(ws);

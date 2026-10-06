@@ -156,6 +156,7 @@ export function normalizeSound(input, index, peakScale = 1) {
         tags,
         peaks: decodePeaks(input.peaks, peakScale),
         waveform: input.waveform ? String(input.waveform) : null,
+        download: input.download ? String(input.download) : null,
     };
 }
 
