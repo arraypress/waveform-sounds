@@ -145,6 +145,9 @@
 .ws-chip:hover { background: var(--ws-hover); }
 .ws-chip[aria-pressed='true'] { border-color: var(--ws-accent); background: var(--ws-accent); color: var(--ws-on-accent); }
 .ws-chip-count { font-family: var(--ws-mono); font-size: 0.85em; opacity: 0.7; }
+/* Full ink on the accent: a dimmed count on a saturated fill fails contrast
+ * (70% measured 4.04:1 on #ff4f24). */
+.ws-chip[aria-pressed='true'] .ws-chip-count { opacity: 1; }
 .ws-count { margin: 0 0 0 auto; color: var(--ws-muted); font-size: 0.88em; font-variant-numeric: tabular-nums; }
 
 /* ── Rows ────────────────────────────────────────────────────────────── */
