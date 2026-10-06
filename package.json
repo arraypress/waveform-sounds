@@ -89,7 +89,7 @@
     "@arraypress/waveform-player": "^1.24.5"
   },
   "devDependencies": {
-    "@arraypress/text": "file:../../Core/text",
+    "@arraypress/text": "^2.2.0",
     "@arraypress/waveform-player": "^1.29.1",
     "esbuild": "^0.28.1",
     "jsdom": "^29.1.1",
