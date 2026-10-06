@@ -35,20 +35,55 @@ describe('renderSounds (server)', () => {
     it('offers only the controls the data can use', () => {
         const one = renderSounds([{url: '/a.mp3', type: 'Bass'}, {url: '/b.mp3', type: 'Bass'}]);
         expect(one).not.toContain('data-ws-type=');
-        expect(one).not.toContain('data-ws-key');
+        expect(one).not.toContain('data-ws-menu="key"');
         expect(one).not.toContain('data-ws-bpm-min');
         const full = renderSounds(sounds);
         expect(full).toContain('data-ws-type="Bass"');
-        expect(full).toContain('<option value="Fm">Fm</option>');
+        expect(full).toContain('data-ws-menu="key"');
+        expect(full).toMatch(/role="option"[^>]*data-value="Fm"/);
         expect(full).toContain('data-ws-bpm-min');
     });
 
     it('turns many types into a menu instead of a wall of chips', () => {
         const many = Array.from({length: 12}, (_, i) => ({url: `/${i}.mp3`, type: `T${i}`}));
         const html = renderSounds(many);
-        expect(html).toContain('data-ws-type-select');
+        expect(html).toContain('data-ws-menu="type"');
         expect(html).not.toContain('class="ws-chip"');
         expect(renderSounds(many, {maxTypeChips: 20})).toContain('class="ws-chip"');
+    });
+
+    it('a long menu gets a search field; a short one does not', () => {
+        const many = Array.from({length: 12}, (_, i) => ({url: `/${i}.mp3`, type: `T${i}`}));
+        expect(renderSounds(many)).toMatch(/data-ws-menu="type"[\s\S]*data-ws-menu-search/);
+        const html = renderSounds(sounds);
+        expect(html).not.toContain('data-ws-menu-search'); // 3 keys, 5 sorts
+        expect(renderSounds(many, {menuSearch: 50})).not.toContain('data-ws-menu-search');
+    });
+
+    it('every control can be removed', () => {
+        const html = renderSounds(sounds, {search: false, filters: [], sorts: [], loopToggle: false, showCount: false, columns: []});
+        for (const hook of ['data-ws-search', 'data-ws-type=', 'data-ws-menu=', 'data-ws-bpm-min', 'data-ws-loop', 'data-ws-count', 'ws-bpm"', 'ws-type"']) {
+            expect(html).not.toContain(hook);
+        }
+    });
+
+    it('removing BPM is filters + columns + sorts', () => {
+        const html = renderSounds(sounds, {filters: ['type', 'key'], columns: ['type', 'key', 'duration'], sorts: ['default', 'title', 'key']});
+        expect(html).not.toContain('data-ws-bpm-min');
+        expect(html).not.toContain('class="ws-cell ws-bpm"');
+        expect(html).not.toMatch(/data-value="bpm"/);
+    });
+
+    it('sorts sets the menu order and drops orders the data cannot use', () => {
+        const html = renderSounds([{url: '/a.mp3', title: 'A'}, {url: '/b.mp3', title: 'B'}], {sorts: ['title', 'bpm', 'default']});
+        expect([...html.matchAll(/data-ws-menu="sort"[\s\S]*?<\/ul>/g)][0][0].match(/data-value="(\w+)"/g)).toEqual(['data-value="title"', 'data-value="default"']);
+    });
+
+    it('menu ids are stable across renders and unique per list', () => {
+        expect(renderSounds(sounds)).toBe(renderSounds(sounds));
+        const a = renderSounds(sounds).match(/id="(ws[^-"]+)-/)[1];
+        const b = renderSounds([{url: '/z.mp3', key: 'C'}, {url: '/y.mp3', key: 'D'}]).match(/id="(ws[^-"]+)-/)[1];
+        expect(a).not.toBe(b);
     });
 
     it('pages: rows past pageSize are hidden and "Show more" counts them', () => {

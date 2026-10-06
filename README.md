@@ -42,13 +42,19 @@ npx @arraypress/waveform-gen ./public/previews/ --recursive \
 
 ## Options
 
-`player` (`'inline'` | `'strip'`), `search`, `filters`, `sortable`,
-`loopToggle`, `pageSize` (50), `maxTypeChips` (10), `columns`,
+`player` (`'inline'` | `'strip'`), `search`, `filters`, `sorts`,
+`loopToggle`, `showCount`, `pageSize` (50), `maxTypeChips` (10), `menuSearch` (8), `columns`,
 `waveformStyle`, `waveformColor`, `progressColor`, `barWidth`, `barGap`,
 `loop`, `autoAdvance`, `arrowAudition`, `playerOptions`, `strings`, and the
 callbacks `onReady` / `onPlay` / `onPause` / `onEnd` / `onFilter` / `onError`.
 Every option has a `data-*` form (`data-page-size="100"`); `strings` and
 `playerOptions` take JSON. See `index.d.ts` for each one.
+
+Every control can go. No BPM anywhere:
+
+```js
+{filters: ['type', 'key'], columns: ['type', 'key', 'duration'], sorts: ['default', 'title', 'key']}
+```
 
 ## Keyboard
 
@@ -70,9 +76,13 @@ The runtime adopts that markup instead of rebuilding it.
 
 ## Theming
 
-Custom properties on `.waveform-sounds`: `--ws-accent`, `--ws-on-accent`,
-`--ws-wave-color`, `--ws-progress-color`, `--ws-border`, `--ws-radius`, … —
-all derived from `currentColor` by default, so it fits light and dark pages.
+Colour-agnostic by default, like the rest of the family: everything derives
+from `currentColor`, and the "on" states (selected chip, playing row) are
+inverted — white on a dark page, black on a light one. Custom properties on
+`.waveform-sounds`: `--ws-accent` / `--ws-on-accent` (opt into a brand
+colour), `--ws-surface` (the page background; detected, but set it for the
+first server-rendered paint), `--ws-wave-color`, `--ws-progress-color`,
+`--ws-border`, `--ws-radius`, `--ws-control-radius`, …
 
 ## License
 

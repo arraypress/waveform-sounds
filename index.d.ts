@@ -83,10 +83,14 @@ export interface WaveformSoundsStrings {
     key: string;
     anyKey: string;
     allTypes: string;
+    findType: string;
+    findKey: string;
+    noMatches: string;
     bpm: string;
     bpmMin: string;
     bpmMax: string;
     sort: string;
+    sortBy: string;
     sortDefault: string;
     sortTitle: string;
     sortBpm: string;
@@ -117,10 +121,21 @@ export interface WaveformSoundsOptions {
     /** Show the search box. Default true. */
     search?: boolean;
     /** Which filter controls to offer (each appears only when the data has
-     *  something to filter: 2+ types, 2+ keys, a BPM range). */
+     *  something to filter: 2+ types, 2+ keys, a BPM range). Drop one to
+     *  remove it, e.g. `['type']` for no key or BPM filtering — and leave
+     *  it out of `columns` and `sorts` to remove it everywhere. `[]` = no
+     *  filters. */
     filters?: SoundsFilterControl[];
-    /** Show the sort menu. Default true. */
-    sortable?: boolean;
+    /** The sort orders the Sort menu offers, in order; the first is the
+     *  starting order. Orders the data can't use are dropped (no BPM sort
+     *  without BPMs). `[]` (or one usable order) hides the menu.
+     *  Default `['default', 'title', 'bpm', 'key', 'duration']`. */
+    sorts?: SoundsSort[];
+    /** Show the "12 of 300 sounds" count. Default true. */
+    showCount?: boolean;
+    /** A dropdown (type / key / sort) gets a search field when it has more
+     *  than this many options. Default 8. */
+    menuSearch?: number;
     /** Show the Loop toggle. Default true. */
     loopToggle?: boolean;
     /** Up to this many types show as chips; more become a "Type" menu

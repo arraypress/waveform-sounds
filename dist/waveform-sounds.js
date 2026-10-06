@@ -167,10 +167,14 @@
     key: "Key",
     anyKey: "Any key",
     allTypes: "All types",
+    findType: "Find a type\u2026",
+    findKey: "Find a key\u2026",
+    noMatches: "No matches",
     bpm: "BPM",
     bpmMin: "Min BPM",
     bpmMax: "Max BPM",
     sort: "Sort",
+    sortBy: "Sort by",
     sortDefault: "Default",
     sortTitle: "Name",
     sortBpm: "BPM",
@@ -192,8 +196,10 @@
     player: "inline",
     search: true,
     filters: ["type", "key", "bpm"],
-    sortable: true,
+    sorts: ["default", "title", "bpm", "key", "duration"],
     loopToggle: true,
+    showCount: true,
+    menuSearch: 8,
     pageSize: 50,
     columns: ["type", "bpm", "key", "duration"],
     maxTypeChips: 10
@@ -211,11 +217,15 @@
   var ICON_PLAY = '<svg class="ws-icon ws-icon-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5.5v13l11-6.5z"/></svg>';
   var ICON_PAUSE = '<svg class="ws-icon ws-icon-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>';
   var ICON_SEARCH = '<svg class="ws-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10.5 4a6.5 6.5 0 1 0 4.03 11.6l4.43 4.43 1.41-1.41-4.43-4.43A6.5 6.5 0 0 0 10.5 4zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z"/></svg>';
+  var ICON_CHEVRON = '<svg class="ws-icon ws-menu-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 8.6 12 14.2l5.6-5.6L19 10l-7 7-7-7z"/></svg>';
+  var ICON_CHECK = '<svg class="ws-icon ws-menu-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 11-11-1.4-1.4z"/></svg>';
   var ICON_LOOP = '<svg class="ws-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17 4l3 3-3 3V8H8a3 3 0 0 0-3 3v1H3v-1a5 5 0 0 1 5-5h9V4zM7 20l-3-3 3-3v2h9a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5H7v2z"/></svg>';
   function resolveRenderOptions(options = {}) {
     const o = { ...RENDER_DEFAULTS, ...stripUndefined(options) };
     if (o.player !== "strip") o.player = "inline";
     o.filters = Array.isArray(o.filters) ? o.filters.filter((f) => ["type", "key", "bpm"].includes(f)) : RENDER_DEFAULTS.filters;
+    o.sorts = Array.isArray(o.sorts) ? o.sorts.filter((k) => SORTS.includes(k)) : RENDER_DEFAULTS.sorts;
+    o.menuSearch = Number.isFinite(Number(o.menuSearch)) && Number(o.menuSearch) >= 0 ? Math.floor(Number(o.menuSearch)) : RENDER_DEFAULTS.menuSearch;
     o.columns = Array.isArray(o.columns) ? o.columns.filter((c) => ["type", "bpm", "key", "duration"].includes(c)) : RENDER_DEFAULTS.columns;
     o.maxTypeChips = Number.isFinite(Number(o.maxTypeChips)) && Number(o.maxTypeChips) >= 0 ? Math.floor(Number(o.maxTypeChips)) : RENDER_DEFAULTS.maxTypeChips;
     o.pageSize = Number.isFinite(Number(o.pageSize)) && Number(o.pageSize) >= 0 ? Math.floor(Number(o.pageSize)) : RENDER_DEFAULTS.pageSize;
@@ -253,6 +263,21 @@
     const wave = o.player === "inline" ? `<span class="ws-wave" role="slider" aria-label="${escapeHtml(fill(s.seek, { title: sound.title }))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="-1"><canvas class="ws-canvas" aria-hidden="true"></canvas></span>` : "";
     return `<li ${attrs}><button type="button" class="ws-play" aria-pressed="false" aria-label="${escapeHtml(fill(s.play, { title: sound.title }))}">${ICON_PLAY}${ICON_PAUSE}</button><span class="ws-cell ws-title">${escapeHtml(sound.title)}</span>` + cols + wave + `</li>`;
   }
+  function availableSorts(sorts, f) {
+    return sorts.filter((k) => k === "default" || k === "title" || k === "bpm" && f.bpm || k === "key" && f.keys.length || k === "duration" && f.hasDuration);
+  }
+  function idBase(list) {
+    let h = 5381;
+    const str = list.length + "|" + list.map((x) => x.url).join("|");
+    for (let i = 0; i < str.length; i++) h = (h << 5) + h + str.charCodeAt(i) | 0;
+    return "ws" + (h >>> 0).toString(36);
+  }
+  function renderMenu(name, m) {
+    const id = `${m.id}-${name}`;
+    const current = m.options.find((o) => o.value === m.value) || m.options[0];
+    const searchable = m.options.length > m.searchFrom && m.placeholder;
+    return `<div class="ws-menu" data-ws-menu="${name}"><button type="button" class="ws-menu-btn" data-ws-menu-btn aria-haspopup="listbox" aria-expanded="false" aria-controls="${id}-list">` + (m.prefix ? `<span class="ws-menu-prefix">${escapeHtml(m.prefix)}</span>` : `<span class="ws-sr">${escapeHtml(m.label)}: </span>`) + `<span class="ws-menu-value" data-ws-menu-value>${escapeHtml(current.label)}</span>${ICON_CHEVRON}</button><div class="ws-menu-pop" data-ws-menu-pop hidden>` + (searchable ? `<input type="search" class="ws-menu-search" data-ws-menu-search role="combobox" aria-expanded="true" aria-controls="${id}-list" aria-autocomplete="list" aria-label="${escapeHtml(m.placeholder)}" placeholder="${escapeHtml(m.placeholder)}" autocomplete="off" spellcheck="false">` : "") + `<ul class="ws-menu-list" role="listbox" id="${id}-list" aria-label="${escapeHtml(m.label)}" tabindex="-1" data-ws-menu-list>` + m.options.map((o, i) => `<li role="option" id="${id}-${i}" class="ws-menu-option" data-value="${escapeHtml(o.value)}" aria-selected="${o === current}">${ICON_CHECK}<span class="ws-menu-text">${escapeHtml(o.label)}</span>` + (o.count != null ? `<span class="ws-menu-count">${o.count}</span>` : "") + "</li>").join("") + `</ul><p class="ws-menu-none" data-ws-menu-none hidden>${escapeHtml(m.noMatches)}</p></div></div>`;
+  }
   function renderSounds(sounds, options = {}) {
     const o = resolveRenderOptions(options);
     const list = normalizeSounds(sounds);
@@ -264,38 +289,57 @@
     const typeChips = showTypes && !typeMenu;
     const showKey = o.filters.includes("key") && f.keys.length > 1;
     const showBpm = o.filters.includes("bpm") && f.bpm && f.bpm.max > f.bpm.min;
+    const sorts = availableSorts(o.sorts, f);
+    const showSort = sorts.length > 1;
+    const id = o.id || idBase(list);
+    const menu = (name, m) => renderMenu(name, { searchFrom: o.menuSearch, noMatches: s.noMatches, id, ...m });
     const parts = [];
     parts.push('<div class="ws-toolbar">');
     if (o.search) {
       parts.push(`<label class="ws-search">${ICON_SEARCH}<span class="ws-sr">${escapeHtml(s.search)}</span><input type="search" class="ws-search-input" data-ws-search placeholder="${escapeHtml(s.searchPlaceholder)}" autocomplete="off" spellcheck="false"></label>`);
     }
-    if (typeMenu || showKey || showBpm || o.sortable || o.loopToggle) {
+    if (typeMenu || showKey || showBpm || showSort || o.loopToggle) {
       parts.push('<div class="ws-controls">');
       if (typeMenu) {
-        parts.push(`<label class="ws-select"><span class="ws-sr">${escapeHtml(s.types)}</span><select data-ws-type-select><option value="">${escapeHtml(s.allTypes)} (${total})</option>` + f.types.map((t) => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)} (${t.count})</option>`).join("") + "</select></label>");
+        parts.push(menu("type", {
+          label: s.types,
+          value: "",
+          placeholder: s.findType,
+          options: [{ value: "", label: s.allTypes, count: total }, ...f.types.map((t) => ({ value: t.name, label: t.name, count: t.count }))]
+        }));
       }
       if (showKey) {
-        parts.push(`<label class="ws-select"><span class="ws-sr">${escapeHtml(s.key)}</span><select data-ws-key><option value="">${escapeHtml(s.anyKey)}</option>` + f.keys.map((k) => `<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join("") + "</select></label>");
+        parts.push(menu("key", {
+          label: s.key,
+          value: "",
+          placeholder: s.findKey,
+          options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k }))]
+        }));
       }
       if (showBpm) {
         parts.push(`<span class="ws-bpm-range" role="group" aria-label="${escapeHtml(s.bpm)}"><input type="number" inputmode="numeric" data-ws-bpm-min aria-label="${escapeHtml(s.bpmMin)}" placeholder="${f.bpm.min}" min="0" step="1"><span aria-hidden="true">\u2013</span><input type="number" inputmode="numeric" data-ws-bpm-max aria-label="${escapeHtml(s.bpmMax)}" placeholder="${f.bpm.max}" min="0" step="1"><span class="ws-bpm-unit" aria-hidden="true">${escapeHtml(s.bpm)}</span></span>`);
       }
-      if (o.sortable) {
+      if (showSort) {
         const label = { default: s.sortDefault, title: s.sortTitle, bpm: s.sortBpm, key: s.sortKey, duration: s.sortDuration };
-        const usable = SORTS.filter((k) => k === "default" || k === "title" || k === "bpm" && f.bpm || k === "key" && f.keys.length || k === "duration" && f.hasDuration);
-        parts.push(`<label class="ws-select"><span class="ws-sr">${escapeHtml(s.sort)}</span><select data-ws-sort>` + usable.map((k) => `<option value="${k}">${escapeHtml(label[k])}</option>`).join("") + "</select></label>");
+        parts.push(menu("sort", {
+          label: s.sort,
+          prefix: s.sortBy,
+          value: sorts[0],
+          options: sorts.map((k) => ({ value: k, label: label[k] }))
+        }));
       }
       if (o.loopToggle) {
         parts.push(`<button type="button" class="ws-loop" data-ws-loop aria-pressed="false">${ICON_LOOP}<span>${escapeHtml(s.loop)}</span></button>`);
       }
       parts.push("</div>");
     }
-    parts.push('<div class="ws-meta">');
+    if (typeChips || o.showCount) parts.push('<div class="ws-meta">');
     if (typeChips) {
-      parts.push(`<div class="ws-types" role="group" aria-label="${escapeHtml(s.types)}"><button type="button" class="ws-chip" data-ws-type="" aria-pressed="true">${escapeHtml(s.all)} <span class="ws-chip-count">${total}</span></button>` + f.types.map((t) => `<button type="button" class="ws-chip" data-ws-type="${escapeHtml(t.name)}" aria-pressed="false">${escapeHtml(t.name)} <span class="ws-chip-count">${t.count}</span></button>`).join("") + "</div>");
+      parts.push(`<div class="ws-types" role="group" aria-label="${escapeHtml(s.types)}"><button type="button" class="ws-chip" data-ws-type="" aria-pressed="true"><span class="ws-chip-label">${escapeHtml(s.all)}</span> <span class="ws-chip-count">${total}</span></button>` + f.types.map((t) => `<button type="button" class="ws-chip" data-ws-type="${escapeHtml(t.name)}" aria-pressed="false"><span class="ws-chip-label">${escapeHtml(t.name)}</span> <span class="ws-chip-count">${t.count}</span></button>`).join("") + "</div>");
     }
-    parts.push(`<p class="ws-count" data-ws-count aria-live="polite">${escapeHtml(countText(total, total, s))}</p>`);
-    parts.push("</div></div>");
+    if (o.showCount) parts.push(`<p class="ws-count" data-ws-count aria-live="polite">${escapeHtml(countText(total, total, s))}</p>`);
+    if (typeChips || o.showCount) parts.push("</div>");
+    parts.push("</div>");
     const page = o.pageSize > 0 ? o.pageSize : Infinity;
     parts.push(`<ul class="ws-list ws-list--${o.player}" role="list" data-ws-list>` + list.map((sound, i) => renderRow(sound, i, o, i >= page)).join("") + "</ul>");
     const more = total - Math.min(total, page);
@@ -402,7 +446,9 @@
     if (d.manifest) out.manifest = d.manifest;
     if (d.search !== void 0) out.search = bool(d.search);
     if (d.filters !== void 0) out.filters = list(d.filters);
-    if (d.sortable !== void 0) out.sortable = bool(d.sortable);
+    if (d.sorts !== void 0) out.sorts = list(d.sorts);
+    if (d.showCount !== void 0) out.showCount = bool(d.showCount);
+    if (d.menuSearch !== void 0 && d.menuSearch !== "") out.menuSearch = Number(d.menuSearch);
     if (d.loopToggle !== void 0) out.loopToggle = bool(d.loopToggle);
     if (d.pageSize !== void 0 && d.pageSize !== "") out.pageSize = Number(d.pageSize);
     if (d.maxTypeChips !== void 0 && d.maxTypeChips !== "") out.maxTypeChips = Number(d.maxTypeChips);
@@ -504,8 +550,8 @@
       this._observe();
       this._resolveColors();
       this._setLoop(this.loop);
+      if (!this._sortSet) this.sortBy = availableSorts(this.render.sorts, facets(this.sounds))[0] || "default";
       this._syncControls();
-      if (this.$.sort && this.$.sort.value !== this.sortBy) this.$.sort.value = this.sortBy;
       this._apply({ resort: this.sortBy !== "default" });
       this._emit("ready", { sounds: this.sounds.length });
       if (typeof this.options.onReady === "function") this.options.onReady(this);
@@ -547,11 +593,9 @@
       this.$ = {
         list: q("[data-ws-list]"),
         search: q("[data-ws-search]"),
-        key: q("[data-ws-key]"),
-        typeSelect: q("[data-ws-type-select]"),
+        menus: Object.fromEntries([...this.container.querySelectorAll("[data-ws-menu]")].map((m) => [m.dataset.wsMenu, m])),
         bpmMin: q("[data-ws-bpm-min]"),
         bpmMax: q("[data-ws-bpm-max]"),
-        sort: q("[data-ws-sort]"),
         loop: q("[data-ws-loop]"),
         count: q("[data-ws-count]"),
         empty: q("[data-ws-empty]"),
@@ -605,20 +649,152 @@
           this.setFilter({ query: "" });
         }
       }, sig);
-      $.key?.addEventListener("change", () => this.setFilter({ key: $.key.value }), sig);
-      $.typeSelect?.addEventListener("change", () => this.setFilter({ type: $.typeSelect.value }), sig);
+      this._bindMenus(sig);
       const bpm = () => {
         clearTimeout(tBpm);
         tBpm = setTimeout(() => this.setFilter({ bpmMin: $.bpmMin?.value ?? "", bpmMax: $.bpmMax?.value ?? "" }), 200);
       };
       $.bpmMin?.addEventListener("input", bpm, sig);
       $.bpmMax?.addEventListener("input", bpm, sig);
-      $.sort?.addEventListener("change", () => this.setSort($.sort.value), sig);
       root.addEventListener("keydown", (e) => this._onKey(e), sig);
       document.addEventListener("waveformplayer:play", (e) => {
         const p = e.detail?.player;
         if (p && p !== this.engine && this.playing) this.pause();
       }, sig);
+    }
+    /* ── Dropdowns (type / key / sort) ───────────────────────────────── */
+    /**
+     * A dropdown is a button and a popup listbox (+ a search field when it
+     * has many options). The popup follows the WAI-ARIA combobox/listbox
+     * pattern: focus stays in the search field (or the list), the active
+     * option is `aria-activedescendant`, ↑/↓ move, Enter picks, Esc closes.
+     */
+    _bindMenus(sig) {
+      for (const [name, menu] of Object.entries(this.$.menus)) {
+        const btn = menu.querySelector("[data-ws-menu-btn]");
+        const search = menu.querySelector("[data-ws-menu-search]");
+        const list = menu.querySelector("[data-ws-menu-list]");
+        btn.addEventListener("click", () => this._openMenu === menu ? this._closeMenu(true) : this._open(menu), sig);
+        btn.addEventListener("keydown", (e) => {
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            this._open(menu);
+          }
+        }, sig);
+        list.addEventListener("click", (e) => {
+          const opt = e.target.closest('[role="option"]');
+          if (opt) this._pick(name, opt.dataset.value);
+        }, sig);
+        list.addEventListener("mousedown", (e) => e.preventDefault(), sig);
+        search?.addEventListener("input", () => this._filterMenu(menu, search.value), sig);
+        (search || list).addEventListener("keydown", (e) => this._menuKey(e, name, menu), sig);
+      }
+      document.addEventListener("pointerdown", (e) => {
+        if (this._openMenu && !this._openMenu.contains(e.target)) this._closeMenu(false);
+      }, sig);
+      this.container.addEventListener("focusout", (e) => {
+        if (this._openMenu && !this._openMenu.contains(e.relatedTarget)) this._closeMenu(false);
+      }, sig);
+    }
+    _open(menu) {
+      if (this._openMenu && this._openMenu !== menu) this._closeMenu(false);
+      const pop = menu.querySelector("[data-ws-menu-pop]");
+      const search = menu.querySelector("[data-ws-menu-search]");
+      menu.querySelector("[data-ws-menu-btn]").setAttribute("aria-expanded", "true");
+      pop.hidden = false;
+      this._openMenu = menu;
+      if (search) {
+        search.value = "";
+        this._filterMenu(menu, "");
+      }
+      menu.classList.remove("ws-menu--end");
+      const box = this.container.getBoundingClientRect(), r = pop.getBoundingClientRect();
+      if (r.right > box.right + 1) menu.classList.add("ws-menu--end");
+      this._activate(menu, menu.querySelector('[role="option"][aria-selected="true"]'));
+      (search || menu.querySelector("[data-ws-menu-list]")).focus();
+    }
+    _closeMenu(focusButton) {
+      const menu = this._openMenu;
+      if (!menu) return;
+      this._openMenu = null;
+      menu.querySelector("[data-ws-menu-pop]").hidden = true;
+      const btn = menu.querySelector("[data-ws-menu-btn]");
+      btn.setAttribute("aria-expanded", "false");
+      if (focusButton) btn.focus();
+    }
+    /** Narrow a menu to the options whose label contains `query`. */
+    _filterMenu(menu, query) {
+      const q = String(query).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+      let first = null, any = false;
+      menu.querySelectorAll('[role="option"]').forEach((opt) => {
+        const text = opt.textContent.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        const show = !q || text.includes(q);
+        opt.hidden = !show;
+        if (show) {
+          any = true;
+          first ??= opt;
+        }
+      });
+      menu.querySelector("[data-ws-menu-none]").hidden = any;
+      this._activate(menu, first);
+    }
+    _activate(menu, opt) {
+      menu.querySelectorAll(".ws-menu-option.is-active").forEach((o) => o.classList.remove("is-active"));
+      const owner = menu.querySelector("[data-ws-menu-search]") || menu.querySelector("[data-ws-menu-list]");
+      if (!opt || opt.hidden) {
+        owner.removeAttribute("aria-activedescendant");
+        return;
+      }
+      opt.classList.add("is-active");
+      owner.setAttribute("aria-activedescendant", opt.id);
+      opt.scrollIntoView?.({ block: "nearest" });
+    }
+    _menuKey(e, name, menu) {
+      const opts = [...menu.querySelectorAll('[role="option"]')].filter((o) => !o.hidden);
+      const cur = opts.indexOf(menu.querySelector(".ws-menu-option.is-active"));
+      const go = (i) => {
+        e.preventDefault();
+        this._activate(menu, opts[Math.max(0, Math.min(opts.length - 1, i))]);
+      };
+      switch (e.key) {
+        case "ArrowDown":
+          return go(cur + 1);
+        case "ArrowUp":
+          return go(cur - 1);
+        case "Home":
+          return e.target.matches("input") ? void 0 : go(0);
+        case "End":
+          return e.target.matches("input") ? void 0 : go(opts.length - 1);
+        case "Enter": {
+          e.preventDefault();
+          if (cur >= 0) this._pick(name, opts[cur].dataset.value);
+          return;
+        }
+        case "Escape":
+          e.preventDefault();
+          e.stopPropagation();
+          return this._closeMenu(true);
+        case "Tab":
+          return this._closeMenu(false);
+        default:
+      }
+    }
+    _pick(name, value) {
+      this._closeMenu(true);
+      if (name === "sort") this.setSort(value);
+      else this.setFilter({ [name]: value });
+    }
+    /** Show `value` as a menu's current choice. */
+    _menuValue(name, value) {
+      const menu = this.$?.menus?.[name];
+      if (!menu) return;
+      let label = null;
+      menu.querySelectorAll('[role="option"]').forEach((o) => {
+        const on = o.dataset.value === String(value ?? "");
+        o.setAttribute("aria-selected", String(on));
+        if (on) label = o.querySelector(".ws-menu-text")?.textContent ?? "";
+      });
+      if (label != null) menu.querySelector("[data-ws-menu-value]").textContent = label;
     }
     _onKey(e) {
       if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
@@ -709,11 +885,28 @@
         probe.style.color = v;
         return getComputedStyle(probe).color;
       };
+      if (this._autoSurface || !getComputedStyle(this.container).getPropertyValue("--ws-surface").trim()) {
+        this._autoSurface = true;
+        this.container.style.removeProperty("--ws-surface");
+        this.container.style.setProperty("--ws-surface", this._surface());
+      }
       this.colors = {
         wave: this.options.waveformColor || read("var(--ws-wave-color)") || "rgba(128,128,128,.5)",
         progress: this.options.progressColor || read("var(--ws-progress-color)") || "currentColor"
       };
       probe.remove();
+    }
+    /** The first opaque background behind the list (white if none). */
+    _surface() {
+      for (let el = this.container; el && el.nodeType === 1; el = el.parentElement || el.getRootNode?.().host) {
+        const bg = getComputedStyle(el).backgroundColor;
+        const m = bg.match(/rgba?\(([^)]+)\)/);
+        if (m) {
+          const parts = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
+          if (parts.length < 4 || parts[3] > 0.95) return bg;
+        }
+      }
+      return "#fff";
     }
     /* ── Filtering, sorting, paging ───────────────────────────────────── */
     /** The sounds that pass the filter, in the current sort order. */
@@ -736,8 +929,9 @@
     }
     /** @param {'default'|'title'|'bpm'|'key'|'duration'} by */
     setSort(by) {
+      this._sortSet = true;
       this.sortBy = SORTS.includes(by) ? by : "default";
-      if (this.$?.sort && this.$.sort.value !== this.sortBy) this.$.sort.value = this.sortBy;
+      this._menuValue("sort", this.sortBy);
       this._apply({ resort: true });
     }
     /** Reveal the next page of results. */
@@ -751,8 +945,9 @@
       const $ = this.$, f = this.filter;
       if (!$) return;
       if ($.search && $.search.value !== f.query) $.search.value = f.query;
-      if ($.key && $.key.value !== f.key) $.key.value = f.key;
-      if ($.typeSelect && $.typeSelect.value !== (f.type || "")) $.typeSelect.value = f.type || "";
+      this._menuValue("type", f.type || "");
+      this._menuValue("key", f.key || "");
+      this._menuValue("sort", this.sortBy);
       if ($.bpmMin && $.bpmMin.value !== String(f.bpmMin)) $.bpmMin.value = f.bpmMin;
       if ($.bpmMax && $.bpmMax.value !== String(f.bpmMax)) $.bpmMax.value = f.bpmMax;
       $.chips.forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.wsType === (f.type || ""))));
@@ -1074,6 +1269,7 @@
       this.engine = null;
       if (this._originalHTML != null) this.container.innerHTML = this._originalHTML;
       if (this._addedClasses?.length) this.container.classList.remove(...this._addedClasses);
+      if (this._autoSurface) this.container.style.removeProperty("--ws-surface");
       delete this.container.dataset.wsInitialized;
       _WaveformSounds.instances.delete(this.container);
     }

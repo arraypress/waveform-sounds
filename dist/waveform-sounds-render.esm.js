@@ -131,10 +131,14 @@ var DEFAULT_STRINGS = {
   key: "Key",
   anyKey: "Any key",
   allTypes: "All types",
+  findType: "Find a type\u2026",
+  findKey: "Find a key\u2026",
+  noMatches: "No matches",
   bpm: "BPM",
   bpmMin: "Min BPM",
   bpmMax: "Max BPM",
   sort: "Sort",
+  sortBy: "Sort by",
   sortDefault: "Default",
   sortTitle: "Name",
   sortBpm: "BPM",
@@ -156,8 +160,10 @@ var RENDER_DEFAULTS = {
   player: "inline",
   search: true,
   filters: ["type", "key", "bpm"],
-  sortable: true,
+  sorts: ["default", "title", "bpm", "key", "duration"],
   loopToggle: true,
+  showCount: true,
+  menuSearch: 8,
   pageSize: 50,
   columns: ["type", "bpm", "key", "duration"],
   maxTypeChips: 10
@@ -175,11 +181,15 @@ function countText(shown, total, strings = DEFAULT_STRINGS) {
 var ICON_PLAY = '<svg class="ws-icon ws-icon-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5.5v13l11-6.5z"/></svg>';
 var ICON_PAUSE = '<svg class="ws-icon ws-icon-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>';
 var ICON_SEARCH = '<svg class="ws-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10.5 4a6.5 6.5 0 1 0 4.03 11.6l4.43 4.43 1.41-1.41-4.43-4.43A6.5 6.5 0 0 0 10.5 4zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z"/></svg>';
+var ICON_CHEVRON = '<svg class="ws-icon ws-menu-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 8.6 12 14.2l5.6-5.6L19 10l-7 7-7-7z"/></svg>';
+var ICON_CHECK = '<svg class="ws-icon ws-menu-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 11-11-1.4-1.4z"/></svg>';
 var ICON_LOOP = '<svg class="ws-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17 4l3 3-3 3V8H8a3 3 0 0 0-3 3v1H3v-1a5 5 0 0 1 5-5h9V4zM7 20l-3-3 3-3v2h9a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5H7v2z"/></svg>';
 function resolveRenderOptions(options = {}) {
   const o = { ...RENDER_DEFAULTS, ...stripUndefined(options) };
   if (o.player !== "strip") o.player = "inline";
   o.filters = Array.isArray(o.filters) ? o.filters.filter((f) => ["type", "key", "bpm"].includes(f)) : RENDER_DEFAULTS.filters;
+  o.sorts = Array.isArray(o.sorts) ? o.sorts.filter((k) => SORTS.includes(k)) : RENDER_DEFAULTS.sorts;
+  o.menuSearch = Number.isFinite(Number(o.menuSearch)) && Number(o.menuSearch) >= 0 ? Math.floor(Number(o.menuSearch)) : RENDER_DEFAULTS.menuSearch;
   o.columns = Array.isArray(o.columns) ? o.columns.filter((c) => ["type", "bpm", "key", "duration"].includes(c)) : RENDER_DEFAULTS.columns;
   o.maxTypeChips = Number.isFinite(Number(o.maxTypeChips)) && Number(o.maxTypeChips) >= 0 ? Math.floor(Number(o.maxTypeChips)) : RENDER_DEFAULTS.maxTypeChips;
   o.pageSize = Number.isFinite(Number(o.pageSize)) && Number(o.pageSize) >= 0 ? Math.floor(Number(o.pageSize)) : RENDER_DEFAULTS.pageSize;
@@ -217,6 +227,21 @@ function renderRow(sound, index, o, hidden = false) {
   const wave = o.player === "inline" ? `<span class="ws-wave" role="slider" aria-label="${escapeHtml(fill(s.seek, { title: sound.title }))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="-1"><canvas class="ws-canvas" aria-hidden="true"></canvas></span>` : "";
   return `<li ${attrs}><button type="button" class="ws-play" aria-pressed="false" aria-label="${escapeHtml(fill(s.play, { title: sound.title }))}">${ICON_PLAY}${ICON_PAUSE}</button><span class="ws-cell ws-title">${escapeHtml(sound.title)}</span>` + cols + wave + `</li>`;
 }
+function availableSorts(sorts, f) {
+  return sorts.filter((k) => k === "default" || k === "title" || k === "bpm" && f.bpm || k === "key" && f.keys.length || k === "duration" && f.hasDuration);
+}
+function idBase(list) {
+  let h = 5381;
+  const str = list.length + "|" + list.map((x) => x.url).join("|");
+  for (let i = 0; i < str.length; i++) h = (h << 5) + h + str.charCodeAt(i) | 0;
+  return "ws" + (h >>> 0).toString(36);
+}
+function renderMenu(name, m) {
+  const id = `${m.id}-${name}`;
+  const current = m.options.find((o) => o.value === m.value) || m.options[0];
+  const searchable = m.options.length > m.searchFrom && m.placeholder;
+  return `<div class="ws-menu" data-ws-menu="${name}"><button type="button" class="ws-menu-btn" data-ws-menu-btn aria-haspopup="listbox" aria-expanded="false" aria-controls="${id}-list">` + (m.prefix ? `<span class="ws-menu-prefix">${escapeHtml(m.prefix)}</span>` : `<span class="ws-sr">${escapeHtml(m.label)}: </span>`) + `<span class="ws-menu-value" data-ws-menu-value>${escapeHtml(current.label)}</span>${ICON_CHEVRON}</button><div class="ws-menu-pop" data-ws-menu-pop hidden>` + (searchable ? `<input type="search" class="ws-menu-search" data-ws-menu-search role="combobox" aria-expanded="true" aria-controls="${id}-list" aria-autocomplete="list" aria-label="${escapeHtml(m.placeholder)}" placeholder="${escapeHtml(m.placeholder)}" autocomplete="off" spellcheck="false">` : "") + `<ul class="ws-menu-list" role="listbox" id="${id}-list" aria-label="${escapeHtml(m.label)}" tabindex="-1" data-ws-menu-list>` + m.options.map((o, i) => `<li role="option" id="${id}-${i}" class="ws-menu-option" data-value="${escapeHtml(o.value)}" aria-selected="${o === current}">${ICON_CHECK}<span class="ws-menu-text">${escapeHtml(o.label)}</span>` + (o.count != null ? `<span class="ws-menu-count">${o.count}</span>` : "") + "</li>").join("") + `</ul><p class="ws-menu-none" data-ws-menu-none hidden>${escapeHtml(m.noMatches)}</p></div></div>`;
+}
 function renderSounds(sounds, options = {}) {
   const o = resolveRenderOptions(options);
   const list = normalizeSounds(sounds);
@@ -228,38 +253,57 @@ function renderSounds(sounds, options = {}) {
   const typeChips = showTypes && !typeMenu;
   const showKey = o.filters.includes("key") && f.keys.length > 1;
   const showBpm = o.filters.includes("bpm") && f.bpm && f.bpm.max > f.bpm.min;
+  const sorts = availableSorts(o.sorts, f);
+  const showSort = sorts.length > 1;
+  const id = o.id || idBase(list);
+  const menu = (name, m) => renderMenu(name, { searchFrom: o.menuSearch, noMatches: s.noMatches, id, ...m });
   const parts = [];
   parts.push('<div class="ws-toolbar">');
   if (o.search) {
     parts.push(`<label class="ws-search">${ICON_SEARCH}<span class="ws-sr">${escapeHtml(s.search)}</span><input type="search" class="ws-search-input" data-ws-search placeholder="${escapeHtml(s.searchPlaceholder)}" autocomplete="off" spellcheck="false"></label>`);
   }
-  if (typeMenu || showKey || showBpm || o.sortable || o.loopToggle) {
+  if (typeMenu || showKey || showBpm || showSort || o.loopToggle) {
     parts.push('<div class="ws-controls">');
     if (typeMenu) {
-      parts.push(`<label class="ws-select"><span class="ws-sr">${escapeHtml(s.types)}</span><select data-ws-type-select><option value="">${escapeHtml(s.allTypes)} (${total})</option>` + f.types.map((t) => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)} (${t.count})</option>`).join("") + "</select></label>");
+      parts.push(menu("type", {
+        label: s.types,
+        value: "",
+        placeholder: s.findType,
+        options: [{ value: "", label: s.allTypes, count: total }, ...f.types.map((t) => ({ value: t.name, label: t.name, count: t.count }))]
+      }));
     }
     if (showKey) {
-      parts.push(`<label class="ws-select"><span class="ws-sr">${escapeHtml(s.key)}</span><select data-ws-key><option value="">${escapeHtml(s.anyKey)}</option>` + f.keys.map((k) => `<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join("") + "</select></label>");
+      parts.push(menu("key", {
+        label: s.key,
+        value: "",
+        placeholder: s.findKey,
+        options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k }))]
+      }));
     }
     if (showBpm) {
       parts.push(`<span class="ws-bpm-range" role="group" aria-label="${escapeHtml(s.bpm)}"><input type="number" inputmode="numeric" data-ws-bpm-min aria-label="${escapeHtml(s.bpmMin)}" placeholder="${f.bpm.min}" min="0" step="1"><span aria-hidden="true">\u2013</span><input type="number" inputmode="numeric" data-ws-bpm-max aria-label="${escapeHtml(s.bpmMax)}" placeholder="${f.bpm.max}" min="0" step="1"><span class="ws-bpm-unit" aria-hidden="true">${escapeHtml(s.bpm)}</span></span>`);
     }
-    if (o.sortable) {
+    if (showSort) {
       const label = { default: s.sortDefault, title: s.sortTitle, bpm: s.sortBpm, key: s.sortKey, duration: s.sortDuration };
-      const usable = SORTS.filter((k) => k === "default" || k === "title" || k === "bpm" && f.bpm || k === "key" && f.keys.length || k === "duration" && f.hasDuration);
-      parts.push(`<label class="ws-select"><span class="ws-sr">${escapeHtml(s.sort)}</span><select data-ws-sort>` + usable.map((k) => `<option value="${k}">${escapeHtml(label[k])}</option>`).join("") + "</select></label>");
+      parts.push(menu("sort", {
+        label: s.sort,
+        prefix: s.sortBy,
+        value: sorts[0],
+        options: sorts.map((k) => ({ value: k, label: label[k] }))
+      }));
     }
     if (o.loopToggle) {
       parts.push(`<button type="button" class="ws-loop" data-ws-loop aria-pressed="false">${ICON_LOOP}<span>${escapeHtml(s.loop)}</span></button>`);
     }
     parts.push("</div>");
   }
-  parts.push('<div class="ws-meta">');
+  if (typeChips || o.showCount) parts.push('<div class="ws-meta">');
   if (typeChips) {
-    parts.push(`<div class="ws-types" role="group" aria-label="${escapeHtml(s.types)}"><button type="button" class="ws-chip" data-ws-type="" aria-pressed="true">${escapeHtml(s.all)} <span class="ws-chip-count">${total}</span></button>` + f.types.map((t) => `<button type="button" class="ws-chip" data-ws-type="${escapeHtml(t.name)}" aria-pressed="false">${escapeHtml(t.name)} <span class="ws-chip-count">${t.count}</span></button>`).join("") + "</div>");
+    parts.push(`<div class="ws-types" role="group" aria-label="${escapeHtml(s.types)}"><button type="button" class="ws-chip" data-ws-type="" aria-pressed="true"><span class="ws-chip-label">${escapeHtml(s.all)}</span> <span class="ws-chip-count">${total}</span></button>` + f.types.map((t) => `<button type="button" class="ws-chip" data-ws-type="${escapeHtml(t.name)}" aria-pressed="false"><span class="ws-chip-label">${escapeHtml(t.name)}</span> <span class="ws-chip-count">${t.count}</span></button>`).join("") + "</div>");
   }
-  parts.push(`<p class="ws-count" data-ws-count aria-live="polite">${escapeHtml(countText(total, total, s))}</p>`);
-  parts.push("</div></div>");
+  if (o.showCount) parts.push(`<p class="ws-count" data-ws-count aria-live="polite">${escapeHtml(countText(total, total, s))}</p>`);
+  if (typeChips || o.showCount) parts.push("</div>");
+  parts.push("</div>");
   const page = o.pageSize > 0 ? o.pageSize : Infinity;
   parts.push(`<ul class="ws-list ws-list--${o.player}" role="list" data-ws-list>` + list.map((sound, i) => renderRow(sound, i, o, i >= page)).join("") + "</ul>");
   const more = total - Math.min(total, page);

@@ -25,3 +25,12 @@ project adheres to [Semantic Versioning](https://semver.org/).
 - `@arraypress/waveform-sounds/render`: a DOM-free renderer for server
   rendering; the runtime adopts its markup instead of rebuilding it.
 - `@arraypress/waveform-sounds/no-autoinit`.
+- Dropdowns for type (past `maxTypeChips`), key and sort: a button and a
+  popup listbox, with a search field past `menuSearch` (8) options; ↑/↓,
+  Enter, Esc, type to narrow (WAI-ARIA combobox/listbox).
+- Every control is optional: `search`, `filters`, `sorts` (which orders,
+  in order; the first is the starting order), `loopToggle`, `showCount`,
+  `columns`.
+- Colour-agnostic by default: the "on" states are inverted (text colour as
+  fill, page surface as ink). The surface is detected (`--ws-surface`) and
+  re-read on theme flips; set it yourself for the first server paint.

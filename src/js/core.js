@@ -22,7 +22,7 @@
 import {
     decodePeaks, facets, matches, normalizeSound, normalizeSounds, parseManifest, sortSounds, SORTS,
 } from './data.js';
-import {countText, DEFAULT_STRINGS, fill, renderSounds, RENDER_DEFAULTS, resolveRenderOptions} from './render.js';
+import {availableSorts, countText, DEFAULT_STRINGS, fill, renderSounds, RENDER_DEFAULTS, resolveRenderOptions} from './render.js';
 import {drawRowWaveform, resample} from './draw.js';
 
 const LOG = '[WaveformSounds]';
@@ -61,7 +61,9 @@ function readDataOptions(el) {
     if (d.manifest) out.manifest = d.manifest;
     if (d.search !== undefined) out.search = bool(d.search);
     if (d.filters !== undefined) out.filters = list(d.filters);
-    if (d.sortable !== undefined) out.sortable = bool(d.sortable);
+    if (d.sorts !== undefined) out.sorts = list(d.sorts);
+    if (d.showCount !== undefined) out.showCount = bool(d.showCount);
+    if (d.menuSearch !== undefined && d.menuSearch !== '') out.menuSearch = Number(d.menuSearch);
     if (d.loopToggle !== undefined) out.loopToggle = bool(d.loopToggle);
     if (d.pageSize !== undefined && d.pageSize !== '') out.pageSize = Number(d.pageSize);
     if (d.maxTypeChips !== undefined && d.maxTypeChips !== '') out.maxTypeChips = Number(d.maxTypeChips);
@@ -174,10 +176,12 @@ export class WaveformSounds {
         this._observe();
         this._resolveColors();
         this._setLoop(this.loop);
+        // The starting order is the first one offered (unless setSort()
+        // already chose one).
+        if (!this._sortSet) this.sortBy = availableSorts(this.render.sorts, facets(this.sounds))[0] || 'default';
         // A setFilter()/setSort() made before the list existed: show it in
         // the controls, and lay the rows out in that order.
         this._syncControls();
-        if (this.$.sort && this.$.sort.value !== this.sortBy) this.$.sort.value = this.sortBy;
         this._apply({resort: this.sortBy !== 'default'});
         this._emit('ready', {sounds: this.sounds.length});
         if (typeof this.options.onReady === 'function') this.options.onReady(this);
@@ -211,11 +215,9 @@ export class WaveformSounds {
         this.$ = {
             list: q('[data-ws-list]'),
             search: q('[data-ws-search]'),
-            key: q('[data-ws-key]'),
-            typeSelect: q('[data-ws-type-select]'),
+            menus: Object.fromEntries([...this.container.querySelectorAll('[data-ws-menu]')].map((m) => [m.dataset.wsMenu, m])),
             bpmMin: q('[data-ws-bpm-min]'),
             bpmMax: q('[data-ws-bpm-max]'),
-            sort: q('[data-ws-sort]'),
             loop: q('[data-ws-loop]'),
             count: q('[data-ws-count]'),
             empty: q('[data-ws-empty]'),
@@ -268,12 +270,10 @@ export class WaveformSounds {
             if (e.key === 'ArrowDown') { e.preventDefault(); this._focusRow(this._visibleRows()[0]); }
             if (e.key === 'Escape' && $.search.value) { e.preventDefault(); $.search.value = ''; this.setFilter({query: ''}); }
         }, sig);
-        $.key?.addEventListener('change', () => this.setFilter({key: $.key.value}), sig);
-        $.typeSelect?.addEventListener('change', () => this.setFilter({type: $.typeSelect.value}), sig);
+        this._bindMenus(sig);
         const bpm = () => { clearTimeout(tBpm); tBpm = setTimeout(() => this.setFilter({bpmMin: $.bpmMin?.value ?? '', bpmMax: $.bpmMax?.value ?? ''}), 200); };
         $.bpmMin?.addEventListener('input', bpm, sig);
         $.bpmMax?.addEventListener('input', bpm, sig);
-        $.sort?.addEventListener('change', () => this.setSort($.sort.value), sig);
 
         root.addEventListener('keydown', (e) => this._onKey(e), sig);
 
@@ -286,6 +286,129 @@ export class WaveformSounds {
             const p = e.detail?.player;
             if (p && p !== this.engine && this.playing) this.pause();
         }, sig);
+    }
+
+    /* ── Dropdowns (type / key / sort) ───────────────────────────────── */
+
+    /**
+     * A dropdown is a button and a popup listbox (+ a search field when it
+     * has many options). The popup follows the WAI-ARIA combobox/listbox
+     * pattern: focus stays in the search field (or the list), the active
+     * option is `aria-activedescendant`, ↑/↓ move, Enter picks, Esc closes.
+     */
+    _bindMenus(sig) {
+        for (const [name, menu] of Object.entries(this.$.menus)) {
+            const btn = menu.querySelector('[data-ws-menu-btn]');
+            const search = menu.querySelector('[data-ws-menu-search]');
+            const list = menu.querySelector('[data-ws-menu-list]');
+            btn.addEventListener('click', () => (this._openMenu === menu ? this._closeMenu(true) : this._open(menu)), sig);
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); this._open(menu); }
+            }, sig);
+            list.addEventListener('click', (e) => {
+                const opt = e.target.closest('[role="option"]');
+                if (opt) this._pick(name, opt.dataset.value);
+            }, sig);
+            // Keep focus in the field while an option is pressed.
+            list.addEventListener('mousedown', (e) => e.preventDefault(), sig);
+            search?.addEventListener('input', () => this._filterMenu(menu, search.value), sig);
+            (search || list).addEventListener('keydown', (e) => this._menuKey(e, name, menu), sig);
+        }
+        // Click outside, or focus leaving, closes it.
+        document.addEventListener('pointerdown', (e) => {
+            if (this._openMenu && !this._openMenu.contains(e.target)) this._closeMenu(false);
+        }, sig);
+        this.container.addEventListener('focusout', (e) => {
+            if (this._openMenu && !this._openMenu.contains(e.relatedTarget)) this._closeMenu(false);
+        }, sig);
+    }
+
+    _open(menu) {
+        if (this._openMenu && this._openMenu !== menu) this._closeMenu(false);
+        const pop = menu.querySelector('[data-ws-menu-pop]');
+        const search = menu.querySelector('[data-ws-menu-search]');
+        menu.querySelector('[data-ws-menu-btn]').setAttribute('aria-expanded', 'true');
+        pop.hidden = false;
+        this._openMenu = menu;
+        if (search) { search.value = ''; this._filterMenu(menu, ''); }
+        // Open over the end edge when it would run past the list's edge.
+        menu.classList.remove('ws-menu--end');
+        const box = this.container.getBoundingClientRect(), r = pop.getBoundingClientRect();
+        if (r.right > box.right + 1) menu.classList.add('ws-menu--end');
+        this._activate(menu, menu.querySelector('[role="option"][aria-selected="true"]'));
+        (search || menu.querySelector('[data-ws-menu-list]')).focus();
+    }
+
+    _closeMenu(focusButton) {
+        const menu = this._openMenu;
+        if (!menu) return;
+        this._openMenu = null;
+        menu.querySelector('[data-ws-menu-pop]').hidden = true;
+        const btn = menu.querySelector('[data-ws-menu-btn]');
+        btn.setAttribute('aria-expanded', 'false');
+        if (focusButton) btn.focus();
+    }
+
+    /** Narrow a menu to the options whose label contains `query`. */
+    _filterMenu(menu, query) {
+        const q = String(query).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        let first = null, any = false;
+        menu.querySelectorAll('[role="option"]').forEach((opt) => {
+            const text = opt.textContent.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+            const show = !q || text.includes(q);
+            opt.hidden = !show;
+            if (show) { any = true; first ??= opt; }
+        });
+        menu.querySelector('[data-ws-menu-none]').hidden = any;
+        this._activate(menu, first);
+    }
+
+    _activate(menu, opt) {
+        menu.querySelectorAll('.ws-menu-option.is-active').forEach((o) => o.classList.remove('is-active'));
+        const owner = menu.querySelector('[data-ws-menu-search]') || menu.querySelector('[data-ws-menu-list]');
+        if (!opt || opt.hidden) { owner.removeAttribute('aria-activedescendant'); return; }
+        opt.classList.add('is-active');
+        owner.setAttribute('aria-activedescendant', opt.id);
+        opt.scrollIntoView?.({block: 'nearest'});
+    }
+
+    _menuKey(e, name, menu) {
+        const opts = [...menu.querySelectorAll('[role="option"]')].filter((o) => !o.hidden);
+        const cur = opts.indexOf(menu.querySelector('.ws-menu-option.is-active'));
+        const go = (i) => { e.preventDefault(); this._activate(menu, opts[Math.max(0, Math.min(opts.length - 1, i))]); };
+        switch (e.key) {
+            case 'ArrowDown': return go(cur + 1);
+            case 'ArrowUp': return go(cur - 1);
+            case 'Home': return e.target.matches('input') ? undefined : go(0);
+            case 'End': return e.target.matches('input') ? undefined : go(opts.length - 1);
+            case 'Enter': {
+                e.preventDefault();
+                if (cur >= 0) this._pick(name, opts[cur].dataset.value);
+                return;
+            }
+            case 'Escape': e.preventDefault(); e.stopPropagation(); return this._closeMenu(true);
+            case 'Tab': return this._closeMenu(false);
+            default:
+        }
+    }
+
+    _pick(name, value) {
+        this._closeMenu(true);
+        if (name === 'sort') this.setSort(value);
+        else this.setFilter({[name]: value});
+    }
+
+    /** Show `value` as a menu's current choice. */
+    _menuValue(name, value) {
+        const menu = this.$?.menus?.[name];
+        if (!menu) return;
+        let label = null;
+        menu.querySelectorAll('[role="option"]').forEach((o) => {
+            const on = o.dataset.value === String(value ?? '');
+            o.setAttribute('aria-selected', String(on));
+            if (on) label = o.querySelector('.ws-menu-text')?.textContent ?? '';
+        });
+        if (label != null) menu.querySelector('[data-ws-menu-value]').textContent = label;
     }
 
     _onKey(e) {
@@ -369,11 +492,33 @@ export class WaveformSounds {
         probe.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;visibility:hidden';
         this.container.appendChild(probe);
         const read = (v) => { probe.style.color = ''; probe.style.color = v; return getComputedStyle(probe).color; };
+        // The page surface behind the list, for the inverted states (the
+        // selected chip, the playing row's button) and the popups — unless
+        // the site set --ws-surface itself.
+        if (this._autoSurface || !getComputedStyle(this.container).getPropertyValue('--ws-surface').trim()) {
+            // Ours to keep current: re-read on every theme flip.
+            this._autoSurface = true;
+            this.container.style.removeProperty('--ws-surface');
+            this.container.style.setProperty('--ws-surface', this._surface());
+        }
         this.colors = {
             wave: this.options.waveformColor || read('var(--ws-wave-color)') || 'rgba(128,128,128,.5)',
             progress: this.options.progressColor || read('var(--ws-progress-color)') || 'currentColor',
         };
         probe.remove();
+    }
+
+    /** The first opaque background behind the list (white if none). */
+    _surface() {
+        for (let el = this.container; el && el.nodeType === 1; el = el.parentElement || el.getRootNode?.().host) {
+            const bg = getComputedStyle(el).backgroundColor;
+            const m = bg.match(/rgba?\(([^)]+)\)/);
+            if (m) {
+                const parts = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
+                if (parts.length < 4 || parts[3] > 0.95) return bg;
+            }
+        }
+        return '#fff';
     }
 
     /* ── Filtering, sorting, paging ───────────────────────────────────── */
@@ -401,8 +546,9 @@ export class WaveformSounds {
 
     /** @param {'default'|'title'|'bpm'|'key'|'duration'} by */
     setSort(by) {
+        this._sortSet = true;
         this.sortBy = SORTS.includes(by) ? by : 'default';
-        if (this.$?.sort && this.$.sort.value !== this.sortBy) this.$.sort.value = this.sortBy;
+        this._menuValue('sort', this.sortBy);
         this._apply({resort: true});
     }
 
@@ -418,8 +564,9 @@ export class WaveformSounds {
         const $ = this.$, f = this.filter;
         if (!$) return;
         if ($.search && $.search.value !== f.query) $.search.value = f.query;
-        if ($.key && $.key.value !== f.key) $.key.value = f.key;
-        if ($.typeSelect && $.typeSelect.value !== (f.type || '')) $.typeSelect.value = f.type || '';
+        this._menuValue('type', f.type || '');
+        this._menuValue('key', f.key || '');
+        this._menuValue('sort', this.sortBy);
         if ($.bpmMin && $.bpmMin.value !== String(f.bpmMin)) $.bpmMin.value = f.bpmMin;
         if ($.bpmMax && $.bpmMax.value !== String(f.bpmMax)) $.bpmMax.value = f.bpmMax;
         $.chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.wsType === (f.type || ''))));
@@ -729,6 +876,7 @@ export class WaveformSounds {
         this.engine = null;
         if (this._originalHTML != null) this.container.innerHTML = this._originalHTML;
         if (this._addedClasses?.length) this.container.classList.remove(...this._addedClasses);
+        if (this._autoSurface) this.container.style.removeProperty('--ws-surface');
         delete this.container.dataset.wsInitialized;
         WaveformSounds.instances.delete(this.container);
     }

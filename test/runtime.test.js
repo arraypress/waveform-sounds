@@ -123,7 +123,7 @@ describe('building the list', () => {
         await ws.ready;
         await settle();
         expect(host.querySelector('[data-ws-search]').value).toBe('bass');
-        expect(host.querySelector('[data-ws-sort]').value).toBe('bpm');
+        expect(host.querySelector('[data-ws-menu="sort"] [data-ws-menu-value]').textContent).toBe('BPM');
         expect(visibleTitles()).toEqual(['Bass Loop 02', 'Bass Loop 01']);
         expect(ws.current.title).toBe('Bass Loop 02');
     });
@@ -170,12 +170,86 @@ describe('filtering, sorting and paging', () => {
 
     it('the type menu filters like the chips', async () => {
         const ws = await make({maxTypeChips: 1});
-        const sel = host.querySelector('[data-ws-type-select]');
-        sel.value = 'Drums';
-        sel.dispatchEvent(new Event('change'));
+        const menu = host.querySelector('[data-ws-menu="type"]');
+        menu.querySelector('[data-ws-menu-btn]').click();
+        expect(menu.querySelector('[data-ws-menu-pop]').hidden).toBe(false);
+        menu.querySelector('[role="option"][data-value="Drums"]').click();
         expect(visibleTitles()).toEqual(['Drum Loop 01']);
+        expect(menu.querySelector('[data-ws-menu-pop]').hidden).toBe(true);
+        expect(menu.querySelector('[data-ws-menu-value]').textContent).toBe('Drums');
         ws.clearFilters();
-        expect(sel.value).toBe('');
+        expect(menu.querySelector('[data-ws-menu-value]').textContent).toBe('All types');
+    });
+
+    it('a searchable menu narrows as you type and picks from the keyboard', async () => {
+        await make({maxTypeChips: 1, menuSearch: 2});
+        const menu = host.querySelector('[data-ws-menu="type"]');
+        const btn = menu.querySelector('[data-ws-menu-btn]');
+        btn.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowDown', bubbles: true}));
+        const search = menu.querySelector('[data-ws-menu-search]');
+        expect(document.activeElement).toBe(search);
+        expect(btn.getAttribute('aria-expanded')).toBe('true');
+        search.value = 'one';
+        search.dispatchEvent(new Event('input'));
+        const shown = [...menu.querySelectorAll('[role="option"]')].filter((o) => !o.hidden).map((o) => o.dataset.value);
+        expect(shown).toEqual(['One-shots']);
+        expect(search.getAttribute('aria-activedescendant')).toBe(menu.querySelector('[data-value="One-shots"]').id);
+        search.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true}));
+        expect(visibleTitles()).toEqual(['Crash']);
+        expect(document.activeElement).toBe(btn);
+    });
+
+    it('a menu shows "No matches" and Esc closes it', async () => {
+        await make({maxTypeChips: 1, menuSearch: 2});
+        const menu = host.querySelector('[data-ws-menu="type"]');
+        menu.querySelector('[data-ws-menu-btn]').click();
+        const search = menu.querySelector('[data-ws-menu-search]');
+        search.value = 'zzz';
+        search.dispatchEvent(new Event('input'));
+        expect(menu.querySelector('[data-ws-menu-none]').hidden).toBe(false);
+        search.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}));
+        expect(menu.querySelector('[data-ws-menu-pop]').hidden).toBe(true);
+    });
+
+    it('a click outside closes an open menu', async () => {
+        await make();
+        const menu = host.querySelector('[data-ws-menu="sort"]');
+        menu.querySelector('[data-ws-menu-btn]').click();
+        document.body.dispatchEvent(new Event('pointerdown', {bubbles: true}));
+        expect(menu.querySelector('[data-ws-menu-pop]').hidden).toBe(true);
+    });
+
+    it('arrows in a menu move the active option, and Enter picks it', async () => {
+        await make();
+        const menu = host.querySelector('[data-ws-menu="sort"]');
+        menu.querySelector('[data-ws-menu-btn]').click();
+        const list = menu.querySelector('[data-ws-menu-list]');
+        list.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowDown', bubbles: true, cancelable: true}));
+        list.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowDown', bubbles: true, cancelable: true}));
+        list.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true}));
+        expect(rows().map((r) => r.dataset.title)).toEqual(['Bass Loop 02', 'Bass Loop 01', 'Drum Loop 01', 'Crash']);
+    });
+
+    it('starts in the first offered sort order', async () => {
+        const ws = await make({sorts: ['title', 'default']});
+        expect(ws.sortBy).toBe('title');
+        expect(rows().map((r) => r.dataset.title)).toEqual(['Bass Loop 01', 'Bass Loop 02', 'Crash', 'Drum Loop 01']);
+    });
+
+    it('detects the page surface for the inverted states, and follows a theme flip', async () => {
+        document.body.style.backgroundColor = 'rgb(10, 10, 10)';
+        await make();
+        expect(host.style.getPropertyValue('--ws-surface')).toBe('rgb(10, 10, 10)');
+        document.body.style.backgroundColor = 'rgb(250, 250, 250)';
+        WaveformSounds.getInstance(host)._resolveColors();
+        expect(host.style.getPropertyValue('--ws-surface')).toBe('rgb(250, 250, 250)');
+        document.body.style.backgroundColor = '';
+    });
+
+    it('leaves a --ws-surface the site set alone', async () => {
+        host.style.setProperty('--ws-surface', 'red');
+        await make();
+        expect(host.style.getPropertyValue('--ws-surface')).toBe('red');
     });
 
     it('shows the empty state and clears from it', async () => {
@@ -191,7 +265,7 @@ describe('filtering, sorting and paging', () => {
         const ws = await make();
         ws.setSort('bpm');
         expect(rows().map((r) => r.dataset.title)).toEqual(['Bass Loop 02', 'Bass Loop 01', 'Drum Loop 01', 'Crash']);
-        expect(host.querySelector('[data-ws-sort]').value).toBe('bpm');
+        expect(host.querySelector('[data-ws-menu="sort"] [data-ws-menu-value]').textContent).toBe('BPM');
     });
 
     it('pages with Show more, and a filter change resets the page', async () => {
