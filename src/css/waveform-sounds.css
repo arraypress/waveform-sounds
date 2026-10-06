@@ -1,0 +1,255 @@
+/*
+ * @arraypress/waveform-sounds — default styles.
+ *
+ * Everything is a custom property on `.waveform-sounds`, and every default
+ * is derived from `currentColor`, so the list fits a light or dark page
+ * with no configuration. Set `--ws-accent` to your brand colour (and
+ * `--ws-on-accent` to the text colour that reads on it) and the playing
+ * row, chips and progress follow.
+ *
+ * The row canvases read `--ws-wave-color` and `--ws-progress-color` (a
+ * canvas can't use CSS, so the runtime resolves them, and re-reads them
+ * when the page theme flips).
+ */
+.waveform-sounds {
+    --ws-accent: currentColor;
+    --ws-on-accent: #fff;
+    --ws-muted: color-mix(in srgb, currentColor 62%, transparent);
+    --ws-border: color-mix(in srgb, currentColor 12%, transparent);
+    --ws-hover: color-mix(in srgb, currentColor 5%, transparent);
+    --ws-current: color-mix(in srgb, var(--ws-accent) 9%, transparent);
+    --ws-field: color-mix(in srgb, currentColor 5%, transparent);
+    --ws-wave-color: color-mix(in srgb, currentColor 30%, transparent);
+    --ws-progress-color: var(--ws-accent);
+    --ws-radius: 10px;
+    --ws-control-radius: 999px;
+    --ws-row-height: 3.25rem;
+    --ws-wave-height: 28px;
+    --ws-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    container-type: inline-size;
+    color: inherit;
+    font: inherit;
+}
+.waveform-sounds *, .waveform-sounds *::before, .waveform-sounds *::after { box-sizing: border-box; }
+.waveform-sounds [hidden] { display: none !important; }
+
+.ws-sr {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+.ws-icon { width: 1em; height: 1em; fill: currentColor; flex: none; }
+
+/* ── Toolbar ─────────────────────────────────────────────────────────── */
+.ws-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+.ws-search {
+    flex: 1 1 16rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+    height: 2.75rem;
+    padding: 0 1rem;
+    border: 1px solid var(--ws-border);
+    border-radius: var(--ws-control-radius);
+    background: var(--ws-field);
+    color: inherit;
+    cursor: text;
+}
+.ws-search:focus-within { border-color: var(--ws-accent); }
+.ws-search-input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    outline: none;
+}
+.ws-search .ws-icon { color: var(--ws-muted); }
+.ws-search-input::placeholder { color: var(--ws-muted); }
+.ws-search-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    width: 0.9em;
+    height: 0.9em;
+    background: currentColor;
+    opacity: 0.55;
+    cursor: pointer;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.ws-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.ws-select select,
+.ws-bpm-range input {
+    height: 2.75rem;
+    border: 1px solid var(--ws-border);
+    border-radius: var(--ws-control-radius);
+    background: var(--ws-field);
+    color: inherit;
+    font: inherit;
+    font-size: 0.9em;
+}
+.ws-select select { padding: 0 2rem 0 1rem; appearance: none; cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+    background-size: 5px 5px; background-repeat: no-repeat; }
+.ws-select select option { color: initial; }
+.ws-bpm-range { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--ws-muted); font-size: 0.9em; }
+.ws-bpm-range input { width: 5rem; padding: 0 0.85rem; -moz-appearance: textfield; }
+.ws-bpm-range input::-webkit-inner-spin-button { display: none; }
+.ws-loop {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    height: 2.75rem;
+    padding: 0 1rem;
+    border: 1px solid var(--ws-border);
+    border-radius: var(--ws-control-radius);
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 0.9em;
+    cursor: pointer;
+}
+.ws-loop[aria-pressed='true'] { border-color: var(--ws-accent); background: var(--ws-current); }
+
+.ws-types { display: flex; flex-wrap: wrap; gap: 0.4rem; flex-basis: 100%; }
+.ws-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 2.25rem;
+    padding: 0 0.9rem;
+    border: 1px solid var(--ws-border);
+    border-radius: var(--ws-control-radius);
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 0.88em;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.ws-chip:hover { background: var(--ws-hover); }
+.ws-chip[aria-pressed='true'] { border-color: var(--ws-accent); background: var(--ws-accent); color: var(--ws-on-accent); }
+.ws-chip-count { font-family: var(--ws-mono); font-size: 0.85em; opacity: 0.7; }
+.ws-count { margin: 0 0 0 auto; color: var(--ws-muted); font-size: 0.88em; font-variant-numeric: tabular-nums; }
+
+/* ── Rows ────────────────────────────────────────────────────────────── */
+.ws-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--ws-border);
+}
+.ws-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-height: var(--ws-row-height);
+    padding: 0.4rem 0.75rem 0.4rem 0.4rem;
+    border-bottom: 1px solid var(--ws-border);
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.ws-row:hover { background: var(--ws-hover); }
+.ws-row.is-current { background: var(--ws-current); }
+.ws-row.is-error .ws-title { text-decoration: line-through; opacity: 0.6; }
+
+.ws-play {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--ws-field);
+    color: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.ws-row:hover .ws-play { background: color-mix(in srgb, currentColor 12%, transparent); }
+.ws-row.is-current .ws-play { background: var(--ws-accent); color: var(--ws-on-accent); }
+.ws-play .ws-icon-pause { display: none; }
+.ws-row.is-playing .ws-play .ws-icon-play { display: none; }
+.ws-row.is-playing .ws-play .ws-icon-pause { display: block; }
+.ws-play:focus-visible,
+.ws-chip:focus-visible,
+.ws-loop:focus-visible,
+.ws-more:focus-visible,
+.ws-clear:focus-visible,
+.ws-wave:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 2px; }
+
+.ws-cell { min-width: 0; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-title { flex: 1.4 1 9rem; font-weight: 500; }
+.ws-type { flex: 1 1 6rem; color: var(--ws-muted); }
+.ws-bpm, .ws-key, .ws-duration { flex: none; font-family: var(--ws-mono); font-size: 0.82em; color: var(--ws-muted); font-variant-numeric: tabular-nums; }
+.ws-bpm { width: 3.25ch; text-align: right; }
+.ws-key { width: 3.5ch; }
+.ws-duration { width: 4.5ch; text-align: right; }
+.ws-wave {
+    flex: 2 1 8rem;
+    position: relative;
+    height: var(--ws-wave-height);
+    min-width: 6rem;
+    cursor: pointer;
+    touch-action: none;
+    border-radius: 4px;
+}
+.ws-canvas { display: block; width: 100%; height: 100%; }
+
+/* Narrow containers: title + length on one line, the rest under it,
+ * the waveform full width below. */
+@container (max-width: 560px) {
+    .ws-row { flex-wrap: wrap; gap: 0.25rem 0.75rem; padding: 0.6rem 0.5rem; }
+    .ws-title { flex: 1 1 0; order: 1; }
+    .ws-duration { order: 2; }
+    .ws-type, .ws-bpm, .ws-key { order: 3; flex: none; width: auto; text-align: left; font-size: 0.78em; }
+    .ws-type { margin-left: calc(2.25rem + 0.75rem); }
+    .ws-wave { order: 4; flex: 1 1 100%; margin-left: calc(2.25rem + 0.75rem); }
+    .ws-play { order: 0; }
+    .ws-count { flex-basis: 100%; margin-left: 0; }
+}
+
+/* ── Footer bits ─────────────────────────────────────────────────────── */
+.ws-empty { margin: 1.5rem 0; color: var(--ws-muted); }
+.ws-clear, .ws-more {
+    border: 1px solid var(--ws-border);
+    border-radius: var(--ws-control-radius);
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+.ws-clear { margin-left: 0.5rem; padding: 0.35rem 0.85rem; font-size: 0.88em; }
+.ws-more { display: block; margin: 1.25rem auto 0; padding: 0.7rem 1.4rem; font-size: 0.92em; }
+.ws-more:hover, .ws-clear:hover { background: var(--ws-hover); }
+
+/* The strip layout: the engine is a full player docked under the list. */
+.ws-engine--strip {
+    position: sticky;
+    bottom: 0;
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border: 1px solid var(--ws-border);
+    border-radius: var(--ws-radius);
+    background: var(--ws-strip-bg, Canvas);
+    z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ws-row, .ws-chip, .ws-play { transition: none; }
+}

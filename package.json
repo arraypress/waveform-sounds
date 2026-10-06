@@ -1,0 +1,79 @@
+{
+  "name": "@arraypress/waveform-sounds",
+  "version": "0.1.0",
+  "description": "Searchable, filterable sound list for WaveformPlayer: audition hundreds of sample previews with inline waveforms, keyboard navigation and one shared audio engine.",
+  "type": "module",
+  "main": "dist/waveform-sounds.cjs",
+  "module": "dist/waveform-sounds.esm.js",
+  "unpkg": "dist/waveform-sounds.min.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./dist/waveform-sounds.esm.js",
+      "require": "./dist/waveform-sounds.cjs",
+      "default": "./dist/waveform-sounds.esm.js"
+    },
+    "./no-autoinit": {
+      "types": "./no-autoinit.d.ts",
+      "import": "./dist/waveform-sounds-no-autoinit.esm.js",
+      "require": "./dist/waveform-sounds-no-autoinit.cjs",
+      "default": "./dist/waveform-sounds-no-autoinit.esm.js"
+    },
+    "./render": {
+      "types": "./render.d.ts",
+      "import": "./dist/waveform-sounds-render.esm.js",
+      "require": "./dist/waveform-sounds-render.cjs",
+      "default": "./dist/waveform-sounds-render.esm.js"
+    },
+    "./styles.css": "./dist/waveform-sounds.css",
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "index.d.ts",
+    "render.d.ts",
+    "no-autoinit.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "./dist/waveform-sounds.esm.js",
+    "./dist/waveform-sounds.cjs",
+    "./dist/waveform-sounds.js",
+    "./dist/waveform-sounds.min.js",
+    "./src/js/index.js",
+    "*.css"
+  ],
+  "scripts": {
+    "build": "npm run build:css && npm run build:iife && npm run build:min && npm run build:esm && npm run build:cjs && npm run build:no-autoinit && npm run build:render",
+    "build:css": "cp src/css/waveform-sounds.css dist/waveform-sounds.css && esbuild src/css/waveform-sounds.css --minify --outfile=dist/waveform-sounds.min.css",
+    "build:iife": "esbuild src/js/index.js --bundle --format=iife --outfile=dist/waveform-sounds.js",
+    "build:min": "esbuild src/js/index.js --bundle --format=iife --minify --outfile=dist/waveform-sounds.min.js",
+    "build:esm": "esbuild src/js/index.js --bundle --format=esm --outfile=dist/waveform-sounds.esm.js",
+    "build:cjs": "esbuild src/js/index.js --bundle --format=cjs --outfile=dist/waveform-sounds.cjs",
+    "build:no-autoinit": "esbuild src/js/entry.js --bundle --format=esm --outfile=dist/waveform-sounds-no-autoinit.esm.js && esbuild src/js/entry.js --bundle --format=cjs --outfile=dist/waveform-sounds-no-autoinit.cjs",
+    "build:render": "esbuild src/js/render-entry.js --bundle --format=esm --outfile=dist/waveform-sounds-render.esm.js && esbuild src/js/render-entry.js --bundle --format=cjs --outfile=dist/waveform-sounds-render.cjs",
+    "dev": "esbuild src/js/index.js --bundle --format=iife --outfile=dist/waveform-sounds.js --watch",
+    "size": "npm run build && echo 'JS:' && gzip -c dist/waveform-sounds.min.js | wc -c && echo 'CSS:' && gzip -c dist/waveform-sounds.min.css | wc -c",
+    "serve": "npx http-server -p 8000",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm test && npm run build"
+  },
+  "keywords": ["audio", "waveform", "samples", "sample-pack", "sound-browser", "preview", "presets", "player", "filter", "search"],
+  "author": "ArrayPress",
+  "license": "MIT",
+  "repository": {"type": "git", "url": "git+https://github.com/arraypress/waveform-sounds.git"},
+  "bugs": {"url": "https://github.com/arraypress/waveform-sounds/issues"},
+  "homepage": "https://github.com/arraypress/waveform-sounds#readme",
+  "peerDependencies": {"@arraypress/waveform-player": "^1.24.5"},
+  "devDependencies": {
+    "@arraypress/waveform-player": "^1.29.1",
+    "esbuild": "^0.28.1",
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.9"
+  }
+}
