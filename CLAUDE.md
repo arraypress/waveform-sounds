@@ -75,6 +75,7 @@ the player's `formatTime` / `extractTitleFromUrl` (different output, and the
 player has no DOM-free entry the server renderer could import).
 
 ## Cross-repo
-Wrappers: `waveform-sounds-astro` / `-react` / `-svelte` / `-vue`. Not yet in
-the `waveform-release` skill's 15-package list — add it there on first publish.
+Wrappers: `waveform-sounds-astro` / `-react` / `-svelte` / `-vue` — packages
+16–20 in the `waveform-release` skill, which has this group's option-change
+checklist.
 Data: `waveform-gen --manifest` writes the `sounds.json` this reads.
