@@ -280,6 +280,21 @@ function resample(peaks, count) {
   }
   return out;
 }
+function barRects(peaks, width, height, o) {
+  const step = o.barWidth + o.barGap;
+  const bars = resample(peaks, Math.max(1, Math.floor((width + o.barGap) / step)));
+  const max = bars.reduce((m, b) => b > m ? b : m, 0);
+  const scale = max > 0 ? 1 / max : 1;
+  return bars.map((b, i) => {
+    const v = Math.max(b * scale, 0.04);
+    if (o.style === "bars") {
+      const h3 = Math.max(1, v * height);
+      return { x: i * step, y: height - h3, w: o.barWidth, h: h3 };
+    }
+    const h2 = Math.max(1, v * (height - 2));
+    return { x: i * step, y: height / 2 - h2 / 2, w: o.barWidth, h: h2 };
+  });
+}
 function drawRowWaveform(canvas, peaks, progress, o) {
   const size = fitCanvas(canvas);
   const ctx = size && canvas.getContext && canvas.getContext("2d");
@@ -292,25 +307,19 @@ function drawRowWaveform(canvas, peaks, progress, o) {
     ctx.fillRect(0, Math.floor(height / 2), width, 1);
     return;
   }
-  const step = o.barWidth + o.barGap;
-  const count = Math.max(1, Math.floor((width + o.barGap) / step));
-  const bars = resample(peaks, count);
-  let max = 0;
-  for (const b of bars) if (b > max) max = b;
-  const scale = max > 0 ? 1 / max : 1;
-  const split = progress * width;
-  const mid = height / 2;
-  for (let i = 0; i < bars.length; i++) {
-    const x = i * step;
-    const v = Math.max(bars[i] * scale, 0.04);
-    ctx.fillStyle = x + o.barWidth / 2 <= split ? o.progressColor : o.color;
-    if (o.style === "bars") {
-      const h2 = Math.max(1, v * height);
-      ctx.fillRect(x, height - h2, o.barWidth, h2);
-    } else {
-      const h2 = Math.max(1, v * (height - 2));
-      ctx.fillRect(x, mid - h2 / 2, o.barWidth, h2);
-    }
+  const path = new Path2D();
+  for (const r of barRects(peaks, width, height, o)) path.rect(r.x, r.y, r.w, r.h);
+  ctx.fillStyle = o.color;
+  ctx.fill(path);
+  const split = Math.min(Math.max(progress, 0), 1) * width;
+  if (split > 0) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, split, height);
+    ctx.clip();
+    ctx.fillStyle = o.progressColor;
+    ctx.fill(path);
+    ctx.restore();
   }
 }
 

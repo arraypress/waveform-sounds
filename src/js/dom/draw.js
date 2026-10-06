@@ -47,7 +47,42 @@ export function resample(peaks, count) {
 }
 
 /**
- * Draw a row waveform.
+ * The rectangles of a row waveform, in CSS pixels. Pure: the geometry is
+ * separate from the canvas so it can be tested (and reused for both
+ * passes of {@link drawRowWaveform}).
+ *
+ * Bars are normalised to the loudest one, so a quiet one-shot isn't a
+ * flat line, and never shorter than 4% of the height.
+ *
+ * @param {number[]} peaks - 0..1.
+ * @param {number} width - Canvas width (CSS px).
+ * @param {number} height - Canvas height (CSS px).
+ * @param {{style: 'mirror'|'bars', barWidth: number, barGap: number}} o
+ * @returns {{x: number, y: number, w: number, h: number}[]}
+ */
+export function barRects(peaks, width, height, o) {
+    const step = o.barWidth + o.barGap;
+    const bars = resample(peaks, Math.max(1, Math.floor((width + o.barGap) / step)));
+    const max = bars.reduce((m, b) => (b > m ? b : m), 0);
+    const scale = max > 0 ? 1 / max : 1;
+    return bars.map((b, i) => {
+        const v = Math.max(b * scale, 0.04);
+        if (o.style === 'bars') {
+            const h = Math.max(1, v * height);
+            return {x: i * step, y: height - h, w: o.barWidth, h};
+        }
+        const h = Math.max(1, v * (height - 2));
+        return {x: i * step, y: height / 2 - h / 2, w: o.barWidth, h};
+    });
+}
+
+/**
+ * Draw a row waveform: every bar in the waveform colour, then the same
+ * bars again in the progress colour, CLIPPED at the playhead. The played
+ * part grows by the pixel — through the middle of a bar — rather than a
+ * whole bar at a time, which on a short clip stepped visibly (an 8-second
+ * loop across ~120 bars moved in ~15 jumps a second however fast it was
+ * redrawn).
  *
  * @param {HTMLCanvasElement} canvas
  * @param {number[]|null} peaks - 0..1. Null draws a flat placeholder line.
@@ -68,26 +103,19 @@ export function drawRowWaveform(canvas, peaks, progress, o) {
         return;
     }
 
-    const step = o.barWidth + o.barGap;
-    const count = Math.max(1, Math.floor((width + o.barGap) / step));
-    const bars = resample(peaks, count);
-    // Normalise to the loudest bar so quiet one-shots aren't a flat line.
-    let max = 0;
-    for (const b of bars) if (b > max) max = b;
-    const scale = max > 0 ? 1 / max : 1;
-    const split = progress * width;
-    const mid = height / 2;
+    const path = new Path2D();
+    for (const r of barRects(peaks, width, height, o)) path.rect(r.x, r.y, r.w, r.h);
 
-    for (let i = 0; i < bars.length; i++) {
-        const x = i * step;
-        const v = Math.max(bars[i] * scale, 0.04);
-        ctx.fillStyle = x + o.barWidth / 2 <= split ? o.progressColor : o.color;
-        if (o.style === 'bars') {
-            const h = Math.max(1, v * height);
-            ctx.fillRect(x, height - h, o.barWidth, h);
-        } else {
-            const h = Math.max(1, v * (height - 2));
-            ctx.fillRect(x, mid - h / 2, o.barWidth, h);
-        }
+    ctx.fillStyle = o.color;
+    ctx.fill(path);
+    const split = Math.min(Math.max(progress, 0), 1) * width;
+    if (split > 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, split, height);
+        ctx.clip();
+        ctx.fillStyle = o.progressColor;
+        ctx.fill(path);
+        ctx.restore();
     }
 }

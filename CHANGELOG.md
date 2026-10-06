@@ -6,6 +6,20 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-10-07
+
+### Fixed
+
+- **The playing row's progress is smooth.** It was painted a whole bar at a
+  time (a bar switched colour once the playhead passed its middle), so a
+  short clip advanced in visible steps — an 8-second loop across ~120 bars
+  moved ~15 times a second however often it was redrawn. The bars are now
+  drawn twice, the second pass clipped at the exact playhead pixel: the
+  played part grows through the middle of a bar. Measured in Chrome: the
+  edge moves every ~1px (≈37 times a second on a 12-second clip at 60fps).
+- Bar geometry is a pure, tested function (`barRects`), and each pass is a
+  single `fill()` of a `Path2D` instead of one `fillRect` per bar.
+
 ## [0.1.0] — 2026-10-06
 
 ### Added
