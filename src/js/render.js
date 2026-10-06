@@ -158,7 +158,9 @@ export function renderRow(sound, index, o, hidden = false) {
     return `<li ${attrs}>`
         + `<button type="button" class="ws-play" aria-pressed="false" aria-label="${escapeHtml(fill(s.play, {title: sound.title}))}">${ICON_PLAY}${ICON_PAUSE}</button>`
         + `<span class="ws-cell ws-title">${escapeHtml(sound.title)}</span>`
-        + cols
+        // The meta cells share a wrapper: `display: contents` on wide rows
+        // (each is a column), one line under the title on narrow ones.
+        + (cols ? `<span class="ws-cells">${cols}</span>` : '')
         + wave
         + `</li>`;
 }
@@ -231,7 +233,9 @@ export function renderSounds(sounds, options = {}) {
     // A sort order is offered only when the data has something to sort by.
     const sorts = availableSorts(o.sorts, f);
     const showSort = sorts.length > 1;
-    const id = o.id || idBase(list);
+    // Unique per list: the caller's prefix, else one derived from the sounds
+    // (two lists of the SAME sounds on a page need an idPrefix each).
+    const id = o.idPrefix || idBase(list);
     const menu = (name, m) => renderMenu(name, {searchFrom: o.menuSearch, noMatches: s.noMatches, id, ...m});
 
     const parts = [];

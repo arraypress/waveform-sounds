@@ -260,7 +260,7 @@ function renderRow(sound, index, o, hidden = false) {
     return `<span class="ws-cell ws-duration">${escapeHtml(formatDuration(sound.duration))}</span>`;
   }).join("");
   const wave = o.player === "inline" ? `<span class="ws-wave" role="slider" aria-label="${escapeHtml(fill(s.seek, { title: sound.title }))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="-1"><canvas class="ws-canvas" aria-hidden="true"></canvas></span>` : "";
-  return `<li ${attrs}><button type="button" class="ws-play" aria-pressed="false" aria-label="${escapeHtml(fill(s.play, { title: sound.title }))}">${ICON_PLAY}${ICON_PAUSE}</button><span class="ws-cell ws-title">${escapeHtml(sound.title)}</span>` + cols + wave + `</li>`;
+  return `<li ${attrs}><button type="button" class="ws-play" aria-pressed="false" aria-label="${escapeHtml(fill(s.play, { title: sound.title }))}">${ICON_PLAY}${ICON_PAUSE}</button><span class="ws-cell ws-title">${escapeHtml(sound.title)}</span>` + (cols ? `<span class="ws-cells">${cols}</span>` : "") + wave + `</li>`;
 }
 function availableSorts(sorts, f) {
   return sorts.filter((k) => k === "default" || k === "title" || k === "bpm" && f.bpm || k === "key" && f.keys.length || k === "duration" && f.hasDuration);
@@ -290,7 +290,7 @@ function renderSounds(sounds, options = {}) {
   const showBpm = o.filters.includes("bpm") && f.bpm && f.bpm.max > f.bpm.min;
   const sorts = availableSorts(o.sorts, f);
   const showSort = sorts.length > 1;
-  const id = o.id || idBase(list);
+  const id = o.idPrefix || idBase(list);
   const menu = (name, m) => renderMenu(name, { searchFrom: o.menuSearch, noMatches: s.noMatches, id, ...m });
   const parts = [];
   parts.push('<div class="ws-toolbar">');

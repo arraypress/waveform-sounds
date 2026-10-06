@@ -22,7 +22,10 @@
  * button with `color: ink; background: currentColor` paints ink on ink. */
 .waveform-sounds {
     --ws-accent: currentColor;
-    --ws-on-accent: var(--ws-surface, Canvas);
+    /* The ink on an inverted fill: the page surface (set by you, or
+     * measured by the runtime), else the INVERSE of the text colour — right
+     * with no script at all (light text → near-black ink, and vice versa). */
+    --ws-on-accent: var(--ws-surface, rgb(from currentColor calc(255 - r) calc(255 - g) calc(255 - b)));
     --ws-muted: color-mix(in srgb, currentColor 62%, transparent);
     --ws-border: color-mix(in srgb, currentColor 12%, transparent);
     --ws-hover: color-mix(in srgb, currentColor 5%, transparent);
@@ -290,21 +293,35 @@
     height: var(--ws-wave-height);
     min-width: 6rem;
     cursor: pointer;
-    touch-action: none;
+    /* Let a finger that lands on a waveform still scroll the page: touch
+     * seeks on a TAP (the runtime handles it on click), not on press. */
+    touch-action: pan-y;
     border-radius: 4px;
 }
 .ws-canvas { display: block; width: 100%; height: 100%; }
 
-/* Narrow containers: title + length on one line, the rest under it,
- * the waveform full width below. */
+/* The meta cells are columns of the row on wide lists... */
+.ws-cells { display: contents; }
+
+/* ...and on narrow ones (a phone, a sidebar) the row is three lines beside
+ * the play button: the full title, then "Bass · 128 · Fm · 0:08", then the
+ * waveform. A title is never squeezed by the columns. */
 @container (max-width: 560px) {
-    .ws-row { flex-wrap: wrap; gap: 0.25rem 0.75rem; padding: 0.6rem 0.5rem; }
-    .ws-title { flex: 1 1 0; order: 1; }
-    .ws-duration { order: 2; }
-    .ws-type, .ws-bpm, .ws-key { order: 3; flex: none; width: auto; text-align: left; font-size: 0.78em; }
-    .ws-type { margin-left: calc(2.25rem + 0.75rem); }
-    .ws-wave { order: 4; flex: 1 1 100%; margin-left: calc(2.25rem + 0.75rem); }
-    .ws-play { order: 0; }
+    .ws-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas: "play title" "play cells" "play wave";
+        column-gap: 0.85rem;
+        row-gap: 0.2rem;
+        padding: 0.7rem 0.5rem;
+    }
+    .ws-play { grid-area: play; align-self: center; }
+    .ws-title { grid-area: title; white-space: normal; overflow-wrap: anywhere; }
+    .ws-cells { grid-area: cells; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.5rem; min-width: 0; }
+    .ws-cells > .ws-cell { flex: none; width: auto; text-align: left; font-size: 0.78em; }
+    .ws-cells > .ws-cell:empty { display: none; }
+    .ws-cells > .ws-cell + .ws-cell:not(:empty)::before { content: '·'; margin-right: 0.5rem; opacity: 0.6; }
+    .ws-wave { grid-area: wave; margin-top: 0.35rem; min-width: 0; }
 }
 
 /* ── Footer bits ─────────────────────────────────────────────────────── */
@@ -331,6 +348,14 @@
     border-radius: var(--ws-radius);
     background: var(--ws-strip-bg, Canvas);
     z-index: 1;
+}
+
+/* Touch: 44px targets, and 16px inputs (iOS zooms into anything smaller). */
+@media (pointer: coarse) {
+    .ws-play { width: 2.75rem; height: 2.75rem; }
+    .ws-chip { height: 2.5rem; }
+    .ws-search-input, .ws-menu-search, .ws-bpm-range input { font-size: 16px; }
+    .ws-menu-option { padding: 0.75rem 0.6rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

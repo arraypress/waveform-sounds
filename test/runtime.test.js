@@ -392,6 +392,34 @@ describe('playback', () => {
         expect(ws.progress).toBeCloseTo(0.5);
     });
 
+    it('touch: a press on a waveform does NOT seek (it may be a scroll); the tap does', async () => {
+        const ws = await make();
+        const wave = rows()[2].querySelector('.ws-wave');
+        wave.getBoundingClientRect = () => ({left: 0, width: 200, top: 0, height: 28, right: 200, bottom: 28});
+        const down = new Event('pointerdown', {bubbles: true, cancelable: true});
+        Object.assign(down, {pointerType: 'touch', button: 0, clientX: 100});
+        wave.dispatchEvent(down);
+        await settle();
+        expect(ws.current).toBeNull();
+        const tap = new MouseEvent('click', {bubbles: true, clientX: 100});
+        wave.dispatchEvent(tap);
+        await settle();
+        expect(ws.current.title).toBe('Bass Loop 02');
+        expect(MockWaveformPlayer.instances[0].calls.seekTo.at(-1)).toBeCloseTo(50);
+    });
+
+    it('mouse: a press on a waveform seeks at once', async () => {
+        const ws = await make();
+        const wave = rows()[2].querySelector('.ws-wave');
+        wave.getBoundingClientRect = () => ({left: 0, width: 200, top: 0, height: 28, right: 200, bottom: 28});
+        const down = new Event('pointerdown', {bubbles: true, cancelable: true});
+        Object.assign(down, {pointerType: 'mouse', button: 0, clientX: 50});
+        wave.dispatchEvent(down);
+        await settle();
+        expect(ws.current.title).toBe('Bass Loop 02');
+        expect(MockWaveformPlayer.instances[0].calls.seekTo.at(-1)).toBeCloseTo(25);
+    });
+
     it('tracks progress from the engine', async () => {
         const ws = await make();
         ws.play(0);

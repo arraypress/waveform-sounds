@@ -260,7 +260,7 @@ function renderRow(sound, index, o, hidden = false) {
     return `<span class="ws-cell ws-duration">${escapeHtml(formatDuration(sound.duration))}</span>`;
   }).join("");
   const wave = o.player === "inline" ? `<span class="ws-wave" role="slider" aria-label="${escapeHtml(fill(s.seek, { title: sound.title }))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="-1"><canvas class="ws-canvas" aria-hidden="true"></canvas></span>` : "";
-  return `<li ${attrs}><button type="button" class="ws-play" aria-pressed="false" aria-label="${escapeHtml(fill(s.play, { title: sound.title }))}">${ICON_PLAY}${ICON_PAUSE}</button><span class="ws-cell ws-title">${escapeHtml(sound.title)}</span>` + cols + wave + `</li>`;
+  return `<li ${attrs}><button type="button" class="ws-play" aria-pressed="false" aria-label="${escapeHtml(fill(s.play, { title: sound.title }))}">${ICON_PLAY}${ICON_PAUSE}</button><span class="ws-cell ws-title">${escapeHtml(sound.title)}</span>` + (cols ? `<span class="ws-cells">${cols}</span>` : "") + wave + `</li>`;
 }
 function availableSorts(sorts, f) {
   return sorts.filter((k) => k === "default" || k === "title" || k === "bpm" && f.bpm || k === "key" && f.keys.length || k === "duration" && f.hasDuration);
@@ -290,7 +290,7 @@ function renderSounds(sounds, options = {}) {
   const showBpm = o.filters.includes("bpm") && f.bpm && f.bpm.max > f.bpm.min;
   const sorts = availableSorts(o.sorts, f);
   const showSort = sorts.length > 1;
-  const id = o.id || idBase(list);
+  const id = o.idPrefix || idBase(list);
   const menu = (name, m) => renderMenu(name, { searchFrom: o.menuSearch, noMatches: s.noMatches, id, ...m });
   const parts = [];
   parts.push('<div class="ws-toolbar">');
@@ -448,6 +448,7 @@ function readDataOptions(el) {
   if (d.sorts !== void 0) out.sorts = list(d.sorts);
   if (d.showCount !== void 0) out.showCount = bool(d.showCount);
   if (d.menuSearch !== void 0 && d.menuSearch !== "") out.menuSearch = Number(d.menuSearch);
+  if (d.idPrefix) out.idPrefix = d.idPrefix;
   if (d.loopToggle !== void 0) out.loopToggle = bool(d.loopToggle);
   if (d.pageSize !== void 0 && d.pageSize !== "") out.pageSize = Number(d.pageSize);
   if (d.maxTypeChips !== void 0 && d.maxTypeChips !== "") out.maxTypeChips = Number(d.maxTypeChips);
@@ -539,7 +540,7 @@ var WaveformSounds = class _WaveformSounds {
       }
       if (this.destroyed) return;
       this.sounds = list;
-      el.innerHTML = renderSounds(list, { ...this.render, strings: this.strings });
+      el.innerHTML = renderSounds(list, { ...this.render, strings: this.strings, idPrefix: this.options.idPrefix || el.id || void 0 });
     }
     if (this.destroyed) return;
     this._addedClasses = ["waveform-sounds", `waveform-sounds--${this.render.player}`].filter((c) => !el.classList.contains(c));
@@ -623,14 +624,22 @@ var WaveformSounds = class _WaveformSounds {
       if (!row || t.closest(".ws-wave")) return;
       this.toggle(Number(row.dataset.wsIndex));
     }, sig);
-    root.addEventListener("pointerdown", (e) => {
+    const seekAt = (e) => {
       const wave = e.target.closest(".ws-wave");
-      if (!wave || e.button !== 0) return;
       const row = wave.closest("[data-ws-index]");
       const r = wave.getBoundingClientRect();
       const pct = r.width ? Math.min(Math.max((e.clientX - r.left) / r.width, 0), 1) : 0;
-      e.preventDefault();
       this._seekRow(Number(row.dataset.wsIndex), pct);
+    };
+    root.addEventListener("click", (e) => {
+      if (this._lastPointer === "touch" && e.target.closest(".ws-wave")) seekAt(e);
+    }, sig);
+    root.addEventListener("pointerdown", (e) => {
+      this._lastPointer = e.pointerType;
+      const wave = e.target.closest(".ws-wave");
+      if (!wave || e.button !== 0 || e.pointerType === "touch") return;
+      e.preventDefault();
+      seekAt(e);
     }, sig);
     let tSearch = 0, tBpm = 0;
     $.search?.addEventListener("input", () => {

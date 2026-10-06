@@ -136,6 +136,10 @@ export interface WaveformSoundsOptions {
     /** A dropdown (type / key / sort) gets a search field when it has more
      *  than this many options. Default 8. */
     menuSearch?: number;
+    /** Prefix for the dropdowns' element ids. Default: the container's `id`,
+     *  else a hash of the sounds — so two lists of the SAME sounds on one
+     *  page each need one (or an `id`). Wrappers pass a framework-unique id. */
+    idPrefix?: string;
     /** Show the Loop toggle. Default true. */
     loopToggle?: boolean;
     /** Up to this many types show as chips; more become a "Type" menu

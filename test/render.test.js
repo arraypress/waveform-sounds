@@ -79,6 +79,11 @@ describe('renderSounds (server)', () => {
         expect([...html.matchAll(/data-ws-menu="sort"[\s\S]*?<\/ul>/g)][0][0].match(/data-value="(\w+)"/g)).toEqual(['data-value="title"', 'data-value="default"']);
     });
 
+    it('idPrefix makes two lists of the same sounds distinct', () => {
+        expect(renderSounds(sounds, {idPrefix: 'a'})).toContain('id="a-key-list"');
+        expect(renderSounds(sounds, {idPrefix: 'b'})).toContain('id="b-key-list"');
+    });
+
     it('menu ids are stable across renders and unique per list', () => {
         expect(renderSounds(sounds)).toBe(renderSounds(sounds));
         const a = renderSounds(sounds).match(/id="(ws[^-"]+)-/)[1];

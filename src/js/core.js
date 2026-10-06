@@ -64,6 +64,7 @@ function readDataOptions(el) {
     if (d.sorts !== undefined) out.sorts = list(d.sorts);
     if (d.showCount !== undefined) out.showCount = bool(d.showCount);
     if (d.menuSearch !== undefined && d.menuSearch !== '') out.menuSearch = Number(d.menuSearch);
+    if (d.idPrefix) out.idPrefix = d.idPrefix;
     if (d.loopToggle !== undefined) out.loopToggle = bool(d.loopToggle);
     if (d.pageSize !== undefined && d.pageSize !== '') out.pageSize = Number(d.pageSize);
     if (d.maxTypeChips !== undefined && d.maxTypeChips !== '') out.maxTypeChips = Number(d.maxTypeChips);
@@ -164,7 +165,7 @@ export class WaveformSounds {
             }
             if (this.destroyed) return;
             this.sounds = list;
-            el.innerHTML = renderSounds(list, {...this.render, strings: this.strings});
+            el.innerHTML = renderSounds(list, {...this.render, strings: this.strings, idPrefix: this.options.idPrefix || el.id || undefined});
         }
         if (this.destroyed) return;
         // Remember which classes WE add, so destroy() takes back exactly
@@ -251,14 +252,24 @@ export class WaveformSounds {
 
         // Seek on the row waveform. Pointer, not click: a press should
         // land where it went down, like every scrubber.
-        root.addEventListener('pointerdown', (e) => {
+        // Mouse and pen seek on press, like every scrubber. Touch seeks on a
+        // TAP (the click after it): a press is often the start of a scroll.
+        const seekAt = (e) => {
             const wave = e.target.closest('.ws-wave');
-            if (!wave || e.button !== 0) return;
             const row = wave.closest('[data-ws-index]');
             const r = wave.getBoundingClientRect();
             const pct = r.width ? Math.min(Math.max((e.clientX - r.left) / r.width, 0), 1) : 0;
-            e.preventDefault();
             this._seekRow(Number(row.dataset.wsIndex), pct);
+        };
+        root.addEventListener('click', (e) => {
+            if (this._lastPointer === 'touch' && e.target.closest('.ws-wave')) seekAt(e);
+        }, sig);
+        root.addEventListener('pointerdown', (e) => {
+            this._lastPointer = e.pointerType;
+            const wave = e.target.closest('.ws-wave');
+            if (!wave || e.button !== 0 || e.pointerType === 'touch') return;
+            e.preventDefault();
+            seekAt(e);
         }, sig);
 
         let tSearch = 0, tBpm = 0;
