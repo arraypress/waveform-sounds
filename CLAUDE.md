@@ -45,11 +45,11 @@ core. Every function and method carries a JSDoc block.
   only decodes when it has no peaks). A sound without peaks borrows the
   engine's decoded ones after its first play.
 - **`index.d.ts` is hand-written** and the four `waveform-sounds-*` wrappers
-  derive their props from it. New option → `DEFAULT_OPTIONS` (core.js),
+  derive their props from it. New option → `DEFAULT_OPTIONS` (core/options.js; render-shaping ones in render/options.js),
   `readDataOptions` (data-* form), `index.d.ts`, and every wrapper's allowlist.
 - **Option precedence is the family's: data-* > constructor > default.**
 - Logging prefix `[WaveformSounds]`. Events are `waveformsounds:*`, bubbling.
-- `render.js`/`data.js` must stay DOM-free: their tests run in the node
+- `render/`, `data/` and `shared/` must stay DOM-free: their tests run in the node
   environment and fail if they touch `window`.
 
 ## Verified in a real browser (2026-10-06)
