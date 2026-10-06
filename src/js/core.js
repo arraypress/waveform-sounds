@@ -130,7 +130,11 @@ export class WaveformSounds {
         WaveformSounds.instances.set(el, this);
         el.dataset.wsInitialized = 'true';
         /** Resolves once the list is built (after a manifest fetch, if any). */
-        this.ready = this._init().catch((err) => {
+        // Build on a later microtask, never inside the constructor: ready /
+        // filter events (and onReady) must reach listeners attached right
+        // after `new WaveformSounds()`, and `this.ready` must already exist
+        // when they fire.
+        this.ready = Promise.resolve().then(() => this._init()).catch((err) => {
             console.error(`${LOG} Failed to initialise:`, err);
             this._emit('error', {error: err});
             if (typeof this.options.onError === 'function') this.options.onError(err, this);
@@ -159,7 +163,10 @@ export class WaveformSounds {
             el.innerHTML = renderSounds(list, {...this.render, strings: this.strings});
         }
         if (this.destroyed) return;
-        el.classList.add('waveform-sounds', `waveform-sounds--${this.render.player}`);
+        // Remember which classes WE add, so destroy() takes back exactly
+        // those (server-rendered markup already carries them).
+        this._addedClasses = ['waveform-sounds', `waveform-sounds--${this.render.player}`].filter((c) => !el.classList.contains(c));
+        el.classList.add(...this._addedClasses);
         this._cacheRefs();
         this._bind();
         this._observe();
@@ -682,7 +689,10 @@ export class WaveformSounds {
     }
 
     /** Tear down: listeners, observers and the engine. Markup this instance
-     *  rendered is restored to what the container held before. */
+     *  rendered is restored to what the container held before. ADOPTED
+     *  (server-rendered) markup is left as it is now — rows may be re-sorted,
+     *  hidden or marked current — so to start again, re-render it rather
+     *  than constructing a new instance over it. */
     destroy() {
         if (this.destroyed) return;
         this.destroyed = true;
@@ -694,7 +704,7 @@ export class WaveformSounds {
         try { this.engine?.destroy(); } catch { /* engine already gone */ }
         this.engine = null;
         if (this._originalHTML != null) this.container.innerHTML = this._originalHTML;
-        this.container.classList.remove('waveform-sounds--inline', 'waveform-sounds--strip');
+        if (this._addedClasses?.length) this.container.classList.remove(...this._addedClasses);
         delete this.container.dataset.wsInitialized;
         WaveformSounds.instances.delete(this.container);
     }

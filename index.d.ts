@@ -30,7 +30,8 @@ export interface SoundInput {
     /** Full-resolution peaks for the `strip` player (a waveform-gen `.json`
      *  URL or an array). */
     waveform?: string | number[];
-    /** Stable id for `play('id')`. Defaults to `sound-<n>`. */
+    /** Stable id for `play('id')`. Defaults to `sound-<n>`, 1-based
+     *  (`sound-1` is the first sound). */
     id?: string;
 }
 
@@ -178,7 +179,9 @@ export declare class WaveformSounds {
     constructor(container: HTMLElement | string, options?: WaveformSoundsOptions);
     readonly container: HTMLElement;
     readonly options: Required<WaveformSoundsOptions>;
-    /** Resolves once the list is built (after a manifest fetch, if any). */
+    /** Resolves once the list is built (after a manifest fetch, if any).
+     *  The build always happens after the constructor returns, so listeners
+     *  attached straight after `new WaveformSounds()` see `ready`. */
     readonly ready: Promise<void>;
     readonly sounds: Sound[];
     readonly filter: SoundsFilter;
@@ -201,6 +204,9 @@ export declare class WaveformSounds {
     clearFilters(): void;
     setSort(by: SoundsSort): void;
     showMore(): void;
+    /** Tear down listeners, observers and the engine. Markup the instance
+     *  rendered is restored; ADOPTED server markup is left as it is (rows may
+     *  be re-sorted/hidden) — re-render it before building a new instance. */
     destroy(): void;
 
     static instances: Map<Element, WaveformSounds>;

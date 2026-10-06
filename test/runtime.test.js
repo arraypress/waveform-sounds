@@ -89,6 +89,28 @@ describe('building the list', () => {
         expect(MockWaveformPlayer.instances[0].options.height).toBe(99);
     });
 
+    it('fires ready after the constructor returns, with ready already set', async () => {
+        const seen = [];
+        const ws = new WaveformSounds(host, {sounds: SOUNDS, onReady: (i) => seen.push(i.ready instanceof Promise)});
+        host.addEventListener('waveformsounds:ready', () => seen.push('event'));
+        expect(seen).toEqual([]);
+        await ws.ready;
+        expect(seen).toEqual([true, 'event']);
+    });
+
+    it('destroy() removes only the classes it added', async () => {
+        host.classList.add('mine');
+        const ws = await make();
+        ws.destroy();
+        expect([...host.classList]).toEqual(['mine']);
+        host.innerHTML = renderSoundsElement(SOUNDS);
+        const el = host.firstElementChild;
+        const adopted = new WaveformSounds(el);
+        await adopted.ready;
+        adopted.destroy();
+        expect(el.classList.contains('waveform-sounds')).toBe(true);
+    });
+
     it('init() is idempotent and getInstance finds the instance', async () => {
         host.setAttribute('data-waveform-sounds', '');
         host.innerHTML = '';
