@@ -5,7 +5,8 @@ A searchable, filterable list of sounds (sample-pack previews) built on
 
 ## Commands
 - `npm test` — vitest + jsdom; `test/integration.test.js` runs against the
-  REAL core (installed from npm), the rest against the stand-in in `test/setup.js`.
+  REAL `@arraypress/waveform-player` (a devDependency from npm), the rest against
+  the stand-in in `test/setup.js`.
 - `npm run build` — iife, min, esm, cjs, no-autoinit (esm+cjs), render (esm+cjs), css.
 - `npm run size` — currently ~10.1 KB JS / ~1.9 KB CSS gzipped.
 
@@ -41,6 +42,13 @@ progress, click-seek, ↓ audition, `/` + typing, the type menu (54 types).
 Seeking on a host that ignores byte ranges works through the core's cache
 path — but only if the host sends cache headers (Cloudflare does; a bare
 test server doesn't, and the seek then restarts the sound).
+
+## One player class per page
+The engine is built from `window.WaveformPlayer` (or `playerClass`). If two
+copies of the player load (an IIFE `<script>` and a bundled ESM import), the
+second overwrites the global and `singlePlay` can't pause across them — the
+static `currentlyPlaying` is per copy. Wrappers must load the player only
+when `window.WaveformPlayer` is absent.
 
 ## Cross-repo
 Wrappers: `waveform-sounds-astro` / `-react` / `-svelte` / `-vue`. Not yet in

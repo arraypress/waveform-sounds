@@ -69,6 +69,8 @@ function readDataOptions(el) {
     if (d.waveformStyle) out.waveformStyle = d.waveformStyle;
     if (d.waveformColor) out.waveformColor = d.waveformColor;
     if (d.progressColor) out.progressColor = d.progressColor;
+    if (d.barWidth !== undefined && d.barWidth !== '') out.barWidth = Number(d.barWidth);
+    if (d.barGap !== undefined && d.barGap !== '') out.barGap = Number(d.barGap);
     if (d.loop !== undefined) out.loop = bool(d.loop);
     if (d.autoAdvance !== undefined) out.autoAdvance = bool(d.autoAdvance);
     if (d.arrowAudition !== undefined) out.arrowAudition = bool(d.arrowAudition);

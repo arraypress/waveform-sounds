@@ -82,11 +82,15 @@ describe('building the list', () => {
     it('reads strings and playerOptions as JSON data attributes', async () => {
         host.dataset.strings = JSON.stringify({count: '{count} geluiden'});
         host.dataset.playerOptions = JSON.stringify({height: 99});
+        host.dataset.barWidth = '3';
+        host.dataset.barGap = '0';
         const ws = await make();
         expect(host.querySelector('[data-ws-count]').textContent).toBe('4 geluiden');
         ws.play(0);
         await settle();
         expect(MockWaveformPlayer.instances[0].options.height).toBe(99);
+        expect(ws.options.barWidth).toBe(3);
+        expect(ws.options.barGap).toBe(0);
     });
 
     it('fires ready after the constructor returns, with ready already set', async () => {
