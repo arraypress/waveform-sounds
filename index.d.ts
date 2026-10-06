@@ -181,7 +181,11 @@ export declare class WaveformSounds {
     readonly options: Required<WaveformSoundsOptions>;
     /** Resolves once the list is built (after a manifest fetch, if any).
      *  The build always happens after the constructor returns, so listeners
-     *  attached straight after `new WaveformSounds()` see `ready`. */
+     *  attached straight after `new WaveformSounds()` see `ready`. It never
+     *  rejects: a failed build (e.g. the manifest 404s) resolves it too and
+     *  is reported through `onError` / `waveformsounds:error`. Calls made
+     *  before it resolves are honoured: `setFilter`/`setSort` show in the
+     *  controls once built, and `play()` waits for the list. */
     readonly ready: Promise<void>;
     readonly sounds: Sound[];
     readonly filter: SoundsFilter;

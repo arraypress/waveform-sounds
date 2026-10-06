@@ -500,7 +500,9 @@ var WaveformSounds = class _WaveformSounds {
     this._observe();
     this._resolveColors();
     this._setLoop(this.loop);
-    this._apply({ resort: false });
+    this._syncControls();
+    if (this.$.sort && this.$.sort.value !== this.sortBy) this.$.sort.value = this.sortBy;
+    this._apply({ resort: this.sortBy !== "default" });
     this._emit("ready", { sounds: this.sounds.length });
     if (typeof this.options.onReady === "function") this.options.onReady(this);
   }
@@ -849,6 +851,12 @@ var WaveformSounds = class _WaveformSounds {
    * @param {{at?: number}} [opts] - `at`: start position 0..1.
    */
   play(target, opts = {}) {
+    if (!this.$) {
+      this.ready.then(() => {
+        if (!this.destroyed) this.play(target, opts);
+      });
+      return;
+    }
     const index = this._indexOf(target);
     if (index == null) return;
     const engine = this._ensureEngine();

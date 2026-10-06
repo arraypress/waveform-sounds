@@ -111,6 +111,19 @@ describe('building the list', () => {
         expect(el.classList.contains('waveform-sounds')).toBe(true);
     });
 
+    it('honours setFilter, setSort and play made before the list exists', async () => {
+        const ws = new WaveformSounds(host, {sounds: SOUNDS});
+        ws.setFilter({query: 'bass'});
+        ws.setSort('bpm');
+        ws.play('sound-3');
+        await ws.ready;
+        await settle();
+        expect(host.querySelector('[data-ws-search]').value).toBe('bass');
+        expect(host.querySelector('[data-ws-sort]').value).toBe('bpm');
+        expect(visibleTitles()).toEqual(['Bass Loop 02', 'Bass Loop 01']);
+        expect(ws.current.title).toBe('Bass Loop 02');
+    });
+
     it('init() is idempotent and getInstance finds the instance', async () => {
         host.setAttribute('data-waveform-sounds', '');
         host.innerHTML = '';
