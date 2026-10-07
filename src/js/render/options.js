@@ -10,7 +10,7 @@ import {SORTS} from '../data/sounds.js';
 import {DEFAULT_STRINGS} from './strings.js';
 
 /** The filter controls a list can offer. */
-export const FILTERS = ['type', 'key', 'bpm'];
+export const FILTERS = ['type', 'key', 'bpm', 'loop'];
 
 /** The columns a row can show after its title. */
 export const COLUMNS = ['type', 'bpm', 'key', 'duration'];

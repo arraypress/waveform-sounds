@@ -205,6 +205,33 @@
 .ws-loop[aria-pressed='true'] { border-color: var(--ws-accent); background: var(--ws-accent); }
 .ws-loop[aria-pressed='true'] > * { color: var(--ws-on-accent); }
 
+/* Loops or one-shots: a segmented control, one button pressed. */
+.ws-seg {
+    display: inline-flex;
+    height: 2.75rem;
+    padding: 0.25rem;
+    gap: 0.15rem;
+    border: 1px solid var(--ws-border);
+    border-radius: var(--ws-control-radius);
+}
+.ws-seg-btn {
+    padding: 0 0.85rem;
+    border: 0;
+    border-radius: var(--ws-control-radius);
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 0.88em;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ws-seg-btn:hover { background: var(--ws-hover); }
+/* On the accent the CHILD takes the inverted ink: the button itself never
+ * sets a colour (see the pause icon note at the top). */
+.ws-seg-btn[aria-pressed='true'] { background: var(--ws-accent); }
+.ws-seg-btn[aria-pressed='true'] > * { color: var(--ws-on-accent); }
+
 .ws-meta { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
 .ws-types { display: flex; flex-wrap: wrap; gap: 0.4rem; flex: 1 1 auto; min-width: 0; }
 .ws-chip {
@@ -276,13 +303,18 @@
 .ws-chip:focus-visible,
 .ws-menu-btn:focus-visible,
 .ws-loop:focus-visible,
+.ws-seg-btn:focus-visible,
 .ws-more:focus-visible,
 .ws-clear:focus-visible,
 .ws-wave:focus-visible,
 .ws-download:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 2px; }
 
 .ws-cell { min-width: 0; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ws-title { flex: 1.4 1 9rem; font-weight: 500; }
+.ws-title { flex: 1.4 1 9rem; display: flex; align-items: center; gap: 0.4rem; font-weight: 500; }
+.ws-title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* A loop's mark: quiet, beside the name. */
+.ws-loop-mark { flex: none; display: inline-flex; color: var(--ws-muted); }
+.ws-loop-mark .ws-icon { width: 0.95em; height: 0.95em; }
 .ws-type { flex: 1 1 6rem; color: var(--ws-muted); }
 .ws-bpm, .ws-key, .ws-duration { flex: none; font-family: var(--ws-mono); font-size: 0.82em; color: var(--ws-muted); font-variant-numeric: tabular-nums; }
 .ws-bpm { width: 3.25ch; text-align: right; }
@@ -331,6 +363,7 @@
     }
     .ws-play { grid-area: play; align-self: center; }
     .ws-title { grid-area: title; white-space: normal; overflow-wrap: anywhere; }
+    .ws-title-text { overflow: visible; }
     .ws-cells { grid-area: cells; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.5rem; min-width: 0; }
     .ws-cells > .ws-cell { flex: none; width: auto; text-align: left; font-size: 0.78em; }
     .ws-cells > .ws-cell:empty { display: none; }

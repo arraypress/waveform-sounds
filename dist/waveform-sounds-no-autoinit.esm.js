@@ -134,8 +134,13 @@ function normalizeSound(input, index, peakScale = 1) {
     tags,
     peaks: decodePeaks(input.peaks, peakScale),
     waveform: input.waveform ? String(input.waveform) : null,
-    download: input.download ? String(input.download) : null
+    download: input.download ? String(input.download) : null,
+    loop: isLoop(input.loop)
   };
+}
+var LOOP_FILTERS = ["loop", "one-shot"];
+function isLoop(value) {
+  return value === true || value === 1 || value === "true" || value === "1";
 }
 function parseManifest(manifest) {
   const list = Array.isArray(manifest) ? manifest : Array.isArray(manifest?.sounds) ? manifest.sounds : [];
@@ -159,7 +164,7 @@ function normalizeSounds(list, peakScale = 1) {
 function facets(sounds) {
   const types = /* @__PURE__ */ new Map();
   const keys = /* @__PURE__ */ new Set();
-  let min = Infinity, max = -Infinity, hasDuration = false;
+  let min = Infinity, max = -Infinity, hasDuration = false, loops = 0;
   for (const s of sounds) {
     if (s.type) types.set(s.type, (types.get(s.type) || 0) + 1);
     if (s.key) keys.add(s.key);
@@ -168,17 +173,22 @@ function facets(sounds) {
       max = Math.max(max, s.bpm);
     }
     if (s.duration != null) hasDuration = true;
+    if (s.loop) loops++;
   }
   return {
     types: [...types].map(([name, count]) => ({ name, count })),
     keys: [...keys].sort((a, b) => keyRank(a) - keyRank(b) || a.localeCompare(b)),
     bpm: min === Infinity ? null : { min, max },
-    hasDuration
+    hasDuration,
+    loops,
+    oneShots: sounds.length - loops
   };
 }
 function matches(sound, filter = {}) {
   if (filter.type && sound.type !== filter.type) return false;
   if (filter.key && sound.key !== normalizeKey(filter.key)) return false;
+  if (filter.loop === "loop" && !sound.loop) return false;
+  if (filter.loop === "one-shot" && sound.loop) return false;
   const lo = Number(filter.bpmMin), hi = Number(filter.bpmMax);
   if (filter.bpmMin != null && filter.bpmMin !== "" && Number.isFinite(lo) || filter.bpmMax != null && filter.bpmMax !== "" && Number.isFinite(hi)) {
     if (sound.bpm == null) return false;
@@ -583,6 +593,10 @@ var DEFAULT_STRINGS = {
   sortKey: "Key",
   sortDuration: "Length",
   loop: "Loop",
+  loopFilter: "Loops or one-shots",
+  loops: "Loops",
+  oneShots: "One-shots",
+  isLoop: "Loop",
   play: "Play {title}",
   pause: "Pause {title}",
   seek: "Seek {title}",
@@ -611,7 +625,7 @@ function countText(shown, total, strings = DEFAULT_STRINGS) {
 }
 
 // src/js/render/options.js
-var FILTERS = ["type", "key", "bpm"];
+var FILTERS = ["type", "key", "bpm", "loop"];
 var COLUMNS = ["type", "bpm", "key", "duration"];
 var RENDER_DEFAULTS = {
   player: "inline",
@@ -788,6 +802,7 @@ function toolbarPlan(f, o) {
     types: !typed ? null : f.types.length > o.maxTypeChips ? "menu" : "chips",
     key: o.filters.includes("key") && f.keys.length > 1,
     bpm: o.filters.includes("bpm") && f.bpm !== null && f.bpm.max > f.bpm.min,
+    loops: o.filters.includes("loop") && f.loops > 0 && f.oneShots > 0,
     sorts: sorts.length > 1 ? sorts : [],
     search: !!o.search,
     loop: !!o.loopToggle,
@@ -858,6 +873,20 @@ function renderBpmRange(s, range) {
     h("span", { class: "ws-bpm-unit", "aria-hidden": "true" }, text(s.bpm))
   );
 }
+function renderLoopFilter(s) {
+  const button = (value, label) => h(
+    "button",
+    { type: "button", class: "ws-seg-btn", "data-ws-loop-filter": value, "aria-pressed": String(value === "") },
+    h("span", {}, text(label))
+  );
+  return h(
+    "div",
+    { class: "ws-seg", role: "group", "aria-label": s.loopFilter },
+    button("", s.all),
+    button("loop", s.loops),
+    button("one-shot", s.oneShots)
+  );
+}
 function renderLoopToggle(s) {
   return h("button", { type: "button", class: "ws-loop", "data-ws-loop": true, "aria-pressed": "false" }, ICONS.loop, h("span", {}, text(s.loop)));
 }
@@ -886,6 +915,7 @@ function renderToolbar(plan, { o, s, f, total, id }) {
       options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k }))]
     }),
     plan.bpm && renderBpmRange(s, f.bpm),
+    plan.loops && renderLoopFilter(s),
     plan.sorts.length > 0 && menu("sort", {
       label: s.sort,
       prefix: s.sortBy,
@@ -936,10 +966,17 @@ function renderRow(sound, index, o, hidden = false) {
       "data-peaks": sound.peaks ? encodePeaks(sound.peaks) : null,
       "data-waveform": sound.waveform,
       "data-download": sound.download,
+      "data-loop": sound.loop ? "true" : null,
       hidden
     },
     h("button", { type: "button", class: "ws-play", "aria-pressed": "false", "aria-label": fill(s.play, vars) }, ICONS.play, ICONS.pause),
-    h("span", { class: "ws-cell ws-title" }, text(sound.title)),
+    h(
+      "span",
+      { class: "ws-cell ws-title" },
+      h("span", { class: "ws-title-text" }, text(sound.title)),
+      // A loop says so beside its name; a one-shot carries nothing.
+      sound.loop && h("span", { class: "ws-loop-mark", title: s.isLoop }, ICONS.loop, h("span", { class: "ws-sr" }, text(s.isLoop)))
+    ),
     // Wide rows: `display: contents` makes each cell a column. Narrow
     // rows: one line under the title.
     cells.length > 0 && h("span", { class: "ws-cells" }, cells),
@@ -1004,7 +1041,8 @@ function readRows(list) {
       tags: d.tags,
       peaks: d.peaks,
       waveform: d.waveform,
-      download: d.download
+      download: d.download,
+      loop: d.loop
     }, sounds.length);
     if (!sound) {
       row.remove();
@@ -1062,7 +1100,7 @@ function resolveCssColor(container, value) {
 function urlKeys(urlState) {
   if (!urlState) return null;
   const p = typeof urlState === "string" ? `${urlState}-` : "";
-  return { q: `${p}q`, type: `${p}type`, key: `${p}key`, bpm: `${p}bpm`, sort: `${p}sort` };
+  return { q: `${p}q`, type: `${p}type`, key: `${p}key`, bpm: `${p}bpm`, loop: `${p}loop`, sort: `${p}sort` };
 }
 function parseBpmRange(value) {
   const m = String(value ?? "").match(/^(\d*)-(\d*)$/);
@@ -1084,6 +1122,8 @@ function readUrlState(search, keys, available, sorts) {
   if (key && available.keys.includes(key)) out.filter.key = key;
   const bpm = parseBpmRange(sp.get(keys.bpm));
   if (bpm) Object.assign(out.filter, bpm);
+  const loop = sp.get(keys.loop);
+  if (LOOP_FILTERS.includes(loop) && available.loops > 0 && available.oneShots > 0) out.filter.loop = loop;
   const sort = sp.get(keys.sort);
   if (sort && sorts.includes(sort)) out.sort = sort;
   return out;
@@ -1096,12 +1136,13 @@ function writeUrlState(href, keys, filter, sort, defaultSort) {
   set(keys.type, filter.type);
   set(keys.key, filter.key);
   set(keys.bpm, formatBpmRange(filter.bpmMin, filter.bpmMax));
+  set(keys.loop, filter.loop);
   set(keys.sort, sort !== defaultSort ? sort : "");
   return url.href;
 }
 
 // src/js/core/WaveformSounds.js
-var NO_FILTER = Object.freeze({ query: "", type: "", key: "", bpmMin: "", bpmMax: "" });
+var NO_FILTER = Object.freeze({ query: "", type: "", key: "", bpmMin: "", bpmMax: "", loop: "" });
 var SEARCH_DELAY = 120;
 var BPM_DELAY = 200;
 var URL_DELAY = 250;
@@ -1206,7 +1247,8 @@ var WaveformSounds = class _WaveformSounds {
       more: q("[data-ws-more]"),
       engine: q("[data-ws-engine]"),
       status: q("[data-ws-status]"),
-      chips: [...this.container.querySelectorAll("[data-ws-type]")]
+      chips: [...this.container.querySelectorAll("[data-ws-type]")],
+      loopFilter: [...this.container.querySelectorAll("[data-ws-loop-filter]")]
     };
     this.rows = indexRows(this.$.list);
   }
@@ -1255,7 +1297,7 @@ var WaveformSounds = class _WaveformSounds {
   }
   /* ── Input ────────────────────────────────────────────────────────── */
   /**
-   * Clicks: type chips, Show more, Clear, Loop, a touch tap on a waveform
+   * Clicks: type chips, loops or one-shots, Show more, Clear, Loop, a touch tap on a waveform
    * (seek), and anywhere else on a row (play/pause).
    * @private
    */
@@ -1264,6 +1306,11 @@ var WaveformSounds = class _WaveformSounds {
     const chip = t.closest("[data-ws-type]");
     if (chip) {
       this.setFilter({ type: chip.dataset.wsType });
+      return;
+    }
+    const seg = t.closest("[data-ws-loop-filter]");
+    if (seg) {
+      this.setFilter({ loop: seg.dataset.wsLoopFilter });
       return;
     }
     if (t.closest("[data-ws-more]")) {
@@ -1533,6 +1580,7 @@ var WaveformSounds = class _WaveformSounds {
     if ($.bpmMin && $.bpmMin.value !== String(f.bpmMin)) $.bpmMin.value = f.bpmMin;
     if ($.bpmMax && $.bpmMax.value !== String(f.bpmMax)) $.bpmMax.value = f.bpmMax;
     $.chips.forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.wsType === (f.type || ""))));
+    $.loopFilter.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.wsLoopFilter === (f.loop || ""))));
   }
   /**
    * Lay the rows out for the current filter, sort and page: order, hide,
@@ -1704,7 +1752,9 @@ var WaveformSounds = class _WaveformSounds {
     return true;
   }
   /**
-   * Loop the current sound (auditioning a loop is the common case).
+   * Loop the current sound (auditioning a loop is the common case). When
+   * the list marks its loops (`loop: true` on any sound), only those
+   * repeat: a one-shot always plays once.
    * @param {boolean} on
    */
   setLoop(on) {
@@ -1717,7 +1767,17 @@ var WaveformSounds = class _WaveformSounds {
    */
   _setLoop(on) {
     this.$?.loop?.setAttribute("aria-pressed", String(on));
-    if (this.engine?.audio) this.engine.audio.loop = on;
+    if (this.engine?.audio) this.engine.audio.loop = this._repeats();
+  }
+  /**
+   * Should the current sound repeat? The Loop toggle is on, and either
+   * the list doesn't say which sounds are loops or this one is.
+   * @private
+   */
+  _repeats() {
+    if (!this.loop) return false;
+    const marksLoops = this.sounds.some((s) => s.loop);
+    return !marksLoops || !!this.sounds[this.currentIndex]?.loop;
   }
   /**
    * Seek a row's sound to `fraction`; a row that isn't current starts
@@ -1745,7 +1805,7 @@ var WaveformSounds = class _WaveformSounds {
    * @private
    */
   _onEngineLoad() {
-    if (this.engine?.audio) this.engine.audio.loop = this.loop;
+    if (this.engine?.audio) this.engine.audio.loop = this._repeats();
     const sound = this.sounds[this.currentIndex];
     if (sound && !sound.peaks && this.engine?.waveformData?.length) {
       sound.peaks = resample(this.engine.waveformData, 96);

@@ -3,7 +3,7 @@
 // tested with no DOM at all.
 import {describe, it, expect} from 'vitest';
 import {
-    encodePeaks, decodePeaks, normalizeKey, parseDuration, formatDuration, titleFromUrl,
+    encodePeaks, decodePeaks, normalizeKey, parseDuration, formatDuration, titleFromUrl, isLoop,
     normalizeSounds, parseManifest, facets, matches, sortSounds,
 } from '../../../src/js/data/sounds.js';
 
@@ -136,5 +136,32 @@ describe('sortSounds', () => {
         const before = SOUNDS.map((s) => s.url);
         sortSounds(SOUNDS, 'title');
         expect(SOUNDS.map((s) => s.url)).toEqual(before);
+    });
+});
+
+describe('loops and one-shots', () => {
+    const list = normalizeSounds([
+        {url: '/a.mp3', title: 'Drum Loop', loop: true},
+        {url: '/b.mp3', title: 'Kick'},
+        {url: '/c.mp3', title: 'Pad Loop', loop: 'true'},
+        {url: '/d.mp3', title: 'Snare', loop: false},
+    ]);
+
+    it('counts as a loop only when it says so', () => {
+        expect([true, 1, 'true', '1'].map(isLoop)).toEqual([true, true, true, true]);
+        expect([false, 0, '', 'false', 'yes', null, undefined].map(isLoop)).toEqual([false, false, false, false, false, false, false]);
+        expect(list.map((s) => s.loop)).toEqual([true, false, true, false]);
+    });
+
+    it('facets count loops and one-shots', () => {
+        expect(facets(list)).toMatchObject({loops: 2, oneShots: 2});
+        expect(facets(list.slice(1, 2))).toMatchObject({loops: 0, oneShots: 1});
+    });
+
+    it('filters to loops, to one-shots, or neither', () => {
+        const titles = (loop) => list.filter((s) => matches(s, {loop})).map((s) => s.title);
+        expect(titles('loop')).toEqual(['Drum Loop', 'Pad Loop']);
+        expect(titles('one-shot')).toEqual(['Kick', 'Snare']);
+        expect(titles('')).toHaveLength(4);
     });
 });

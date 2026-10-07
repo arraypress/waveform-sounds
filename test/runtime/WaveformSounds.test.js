@@ -357,6 +357,33 @@ describe('playback', () => {
         expect(MockWaveformPlayer.instances[0].audio.loop).toBe(false);
     });
 
+    it('with loops marked, Loop repeats only loops; a one-shot plays once', async () => {
+        const ws = await make({sounds: [{url: '/l.mp3', title: 'Drum Loop', loop: true}, {url: '/k.mp3', title: 'Kick'}], loop: true});
+        ws.play(0);
+        await settle();
+        const audio = MockWaveformPlayer.instances[0].audio;
+        expect(audio.loop).toBe(true);
+        ws.play(1);
+        await settle();
+        expect(audio.loop).toBe(false);
+        ws.setLoop(true); // re-applying keeps the one-shot single
+        expect(audio.loop).toBe(false);
+    });
+
+    it('the loops filter: All / Loops / One-shots, kept in sync', async () => {
+        const ws = await make({sounds: [{url: '/l.mp3', title: 'Drum Loop', loop: true}, {url: '/k.mp3', title: 'Kick'}, {url: '/s.mp3', title: 'Snare'}]});
+        const btn = (v) => host.querySelector(`[data-ws-loop-filter="${v}"]`);
+        btn('loop').click();
+        expect(visibleTitles()).toEqual(['Drum Loop']);
+        expect(btn('loop').getAttribute('aria-pressed')).toBe('true');
+        expect(btn('').getAttribute('aria-pressed')).toBe('false');
+        btn('one-shot').click();
+        expect(visibleTitles()).toEqual(['Kick', 'Snare']);
+        ws.clearFilters();
+        expect(visibleTitles()).toHaveLength(3);
+        expect(btn('').getAttribute('aria-pressed')).toBe('true');
+    });
+
     it('autoAdvance plays the next VISIBLE sound when one ends', async () => {
         const ws = await make({autoAdvance: true});
         ws.setFilter({type: 'Bass'});

@@ -93,8 +93,12 @@ function normalizeSound(input, index, peakScale = 1) {
     tags,
     peaks: decodePeaks(input.peaks, peakScale),
     waveform: input.waveform ? String(input.waveform) : null,
-    download: input.download ? String(input.download) : null
+    download: input.download ? String(input.download) : null,
+    loop: isLoop(input.loop)
   };
+}
+function isLoop(value) {
+  return value === true || value === 1 || value === "true" || value === "1";
 }
 function parseManifest(manifest) {
   const list = Array.isArray(manifest) ? manifest : Array.isArray(manifest?.sounds) ? manifest.sounds : [];
@@ -118,7 +122,7 @@ function normalizeSounds(list, peakScale = 1) {
 function facets(sounds) {
   const types = /* @__PURE__ */ new Map();
   const keys = /* @__PURE__ */ new Set();
-  let min = Infinity, max = -Infinity, hasDuration = false;
+  let min = Infinity, max = -Infinity, hasDuration = false, loops = 0;
   for (const s of sounds) {
     if (s.type) types.set(s.type, (types.get(s.type) || 0) + 1);
     if (s.key) keys.add(s.key);
@@ -127,12 +131,15 @@ function facets(sounds) {
       max = Math.max(max, s.bpm);
     }
     if (s.duration != null) hasDuration = true;
+    if (s.loop) loops++;
   }
   return {
     types: [...types].map(([name, count]) => ({ name, count })),
     keys: [...keys].sort((a, b) => keyRank(a) - keyRank(b) || a.localeCompare(b)),
     bpm: min === Infinity ? null : { min, max },
-    hasDuration
+    hasDuration,
+    loops,
+    oneShots: sounds.length - loops
   };
 }
 var SORTS = ["default", "title", "bpm", "key", "duration"];
@@ -204,6 +211,10 @@ var DEFAULT_STRINGS = {
   sortKey: "Key",
   sortDuration: "Length",
   loop: "Loop",
+  loopFilter: "Loops or one-shots",
+  loops: "Loops",
+  oneShots: "One-shots",
+  isLoop: "Loop",
   play: "Play {title}",
   pause: "Pause {title}",
   seek: "Seek {title}",
@@ -232,7 +243,7 @@ function countText(shown, total, strings = DEFAULT_STRINGS) {
 }
 
 // src/js/render/options.js
-var FILTERS = ["type", "key", "bpm"];
+var FILTERS = ["type", "key", "bpm", "loop"];
 var COLUMNS = ["type", "bpm", "key", "duration"];
 var RENDER_DEFAULTS = {
   player: "inline",
@@ -292,6 +303,7 @@ function toolbarPlan(f, o) {
     types: !typed ? null : f.types.length > o.maxTypeChips ? "menu" : "chips",
     key: o.filters.includes("key") && f.keys.length > 1,
     bpm: o.filters.includes("bpm") && f.bpm !== null && f.bpm.max > f.bpm.min,
+    loops: o.filters.includes("loop") && f.loops > 0 && f.oneShots > 0,
     sorts: sorts.length > 1 ? sorts : [],
     search: !!o.search,
     loop: !!o.loopToggle,
@@ -362,6 +374,20 @@ function renderBpmRange(s, range) {
     h("span", { class: "ws-bpm-unit", "aria-hidden": "true" }, text(s.bpm))
   );
 }
+function renderLoopFilter(s) {
+  const button = (value, label) => h(
+    "button",
+    { type: "button", class: "ws-seg-btn", "data-ws-loop-filter": value, "aria-pressed": String(value === "") },
+    h("span", {}, text(label))
+  );
+  return h(
+    "div",
+    { class: "ws-seg", role: "group", "aria-label": s.loopFilter },
+    button("", s.all),
+    button("loop", s.loops),
+    button("one-shot", s.oneShots)
+  );
+}
 function renderLoopToggle(s) {
   return h("button", { type: "button", class: "ws-loop", "data-ws-loop": true, "aria-pressed": "false" }, ICONS.loop, h("span", {}, text(s.loop)));
 }
@@ -390,6 +416,7 @@ function renderToolbar(plan, { o, s, f, total, id }) {
       options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k }))]
     }),
     plan.bpm && renderBpmRange(s, f.bpm),
+    plan.loops && renderLoopFilter(s),
     plan.sorts.length > 0 && menu("sort", {
       label: s.sort,
       prefix: s.sortBy,
@@ -440,10 +467,17 @@ function renderRow(sound, index, o, hidden = false) {
       "data-peaks": sound.peaks ? encodePeaks(sound.peaks) : null,
       "data-waveform": sound.waveform,
       "data-download": sound.download,
+      "data-loop": sound.loop ? "true" : null,
       hidden
     },
     h("button", { type: "button", class: "ws-play", "aria-pressed": "false", "aria-label": fill(s.play, vars) }, ICONS.play, ICONS.pause),
-    h("span", { class: "ws-cell ws-title" }, text(sound.title)),
+    h(
+      "span",
+      { class: "ws-cell ws-title" },
+      h("span", { class: "ws-title-text" }, text(sound.title)),
+      // A loop says so beside its name; a one-shot carries nothing.
+      sound.loop && h("span", { class: "ws-loop-mark", title: s.isLoop }, ICONS.loop, h("span", { class: "ws-sr" }, text(s.isLoop)))
+    ),
     // Wide rows: `display: contents` makes each cell a column. Narrow
     // rows: one line under the title.
     cells.length > 0 && h("span", { class: "ws-cells" }, cells),

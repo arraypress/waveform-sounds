@@ -9,7 +9,7 @@ describe('urlKeys', () => {
     it('is off for falsy, plain for true, prefixed for a string', () => {
         expect(urlKeys(false)).toBeNull();
         expect(urlKeys(undefined)).toBeNull();
-        expect(urlKeys(true)).toEqual({q: 'q', type: 'type', key: 'key', bpm: 'bpm', sort: 'sort'});
+        expect(urlKeys(true)).toEqual({q: 'q', type: 'type', key: 'key', bpm: 'bpm', loop: 'loop', sort: 'sort'});
         expect(urlKeys('pack').type).toBe('pack-type');
     });
 });
@@ -53,5 +53,21 @@ describe('writeUrlState', () => {
     });
     it('returns the href unchanged when off', () => {
         expect(writeUrlState('https://x.test/p?q=1', null, empty, 'bpm', 'default')).toBe('https://x.test/p?q=1');
+    });
+});
+
+describe('the loops filter in the address', () => {
+    const keys = urlKeys(true);
+    const mixed = {...available, loops: 2, oneShots: 3};
+    it('reads loop / one-shot only for a list with both', () => {
+        expect(readUrlState('?loop=loop', keys, mixed, SORTS).filter.loop).toBe('loop');
+        expect(readUrlState('?loop=one-shot', keys, mixed, SORTS).filter.loop).toBe('one-shot');
+        expect(readUrlState('?loop=loop', keys, {...available, loops: 0, oneShots: 5}, SORTS).filter.loop).toBeUndefined();
+        expect(readUrlState('?loop=maybe', keys, mixed, SORTS).filter.loop).toBeUndefined();
+    });
+    it('writes it, and removes it when cleared', () => {
+        const f = {query: '', type: '', key: '', bpmMin: '', bpmMax: ''};
+        expect(writeUrlState('https://x.test/p', keys, {...f, loop: 'one-shot'}, 'default', 'default')).toBe('https://x.test/p?loop=one-shot');
+        expect(writeUrlState('https://x.test/p?loop=loop', keys, {...f, loop: ''}, 'default', 'default')).toBe('https://x.test/p');
     });
 });

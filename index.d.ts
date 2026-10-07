@@ -34,6 +34,11 @@ export interface SoundInput {
      *  a MIDI preview). Rows with one get a download button; rows without
      *  carry nothing. A plain `<a download>`: gating is the site's job. */
     download?: string;
+    /** A loop (`true`) rather than a one-shot (the default). Loops get a
+     *  loop icon beside their name, the "Loops / One-shots" filter appears
+     *  once a list has both, and with any sound marked the Loop toggle
+     *  repeats only loops. */
+    loop?: boolean;
     /** Stable id for `play('id')`. Defaults to `sound-<n>`, 1-based
      *  (`sound-1` is the first sound). */
     id?: string;
@@ -52,6 +57,7 @@ export interface Sound {
     peaks: number[] | null;
     waveform: string | null;
     download: string | null;
+    loop: boolean;
 }
 
 /** What `waveform-gen --manifest` writes (a bare array also works). */
@@ -72,11 +78,15 @@ export interface SoundsFilter {
     key: string;
     bpmMin: number | string;
     bpmMax: number | string;
+    /** `'loop'`: loops only. `'one-shot'`: everything else. '' for both. */
+    loop?: SoundsLoopFilter;
 }
+
+export type SoundsLoopFilter = '' | 'loop' | 'one-shot';
 
 export type SoundsSort = 'default' | 'title' | 'bpm' | 'key' | 'duration';
 export type SoundsLayout = 'inline' | 'strip';
-export type SoundsFilterControl = 'type' | 'key' | 'bpm';
+export type SoundsFilterControl = 'type' | 'key' | 'bpm' | 'loop';
 export type SoundsColumn = 'type' | 'bpm' | 'key' | 'duration';
 
 /** Every visible or announced word. `{title}`, `{count}`, `{total}` are filled in. */
@@ -102,6 +112,10 @@ export interface WaveformSoundsStrings {
     sortKey: string;
     sortDuration: string;
     loop: string;
+    loopFilter: string;
+    loops: string;
+    oneShots: string;
+    isLoop: string;
     play: string;
     pause: string;
     seek: string;
@@ -127,7 +141,8 @@ export interface WaveformSoundsOptions {
     /** Show the search box. Default true. */
     search?: boolean;
     /** Which filter controls to offer (each appears only when the data has
-     *  something to filter: 2+ types, 2+ keys, a BPM range). Drop one to
+     *  something to filter: 2+ types, 2+ keys, a BPM range, both loops and
+     *  one-shots). Drop one to
      *  remove it, e.g. `['type']` for no key or BPM filtering — and leave
      *  it out of `columns` and `sorts` to remove it everywhere. `[]` = no
      *  filters. */
@@ -152,7 +167,8 @@ export interface WaveformSoundsOptions {
      *  (`'pack'` → `pack-q`, `pack-type`, …) for several lists on a page.
      *  Uses replaceState: filtering adds no history entries. Default false. */
     urlState?: boolean | string;
-    /** Show the Loop toggle. Default true. */
+    /** Show the Loop toggle. Default true. When any sound is marked
+     *  `loop: true`, only loops repeat. */
     loopToggle?: boolean;
     /** Up to this many types show as chips; more become a "Type" menu
      *  (a pack has a handful, a whole library can have fifty). Default 10. */
@@ -272,7 +288,7 @@ export declare function decodePeaks(value: string | number[] | null | undefined,
 export declare function normalizeKey(key: string | null | undefined): string;
 export declare function normalizeSounds(list: SoundInput[], peakScale?: number): Sound[];
 export declare function parseManifest(manifest: SoundsManifest | SoundInput[]): Sound[];
-export declare function facets(sounds: Sound[]): {types: {name: string; count: number}[]; keys: string[]; bpm: {min: number; max: number} | null; hasDuration: boolean};
+export declare function facets(sounds: Sound[]): {types: {name: string; count: number}[]; keys: string[]; bpm: {min: number; max: number} | null; hasDuration: boolean; loops: number; oneShots: number};
 export declare function matches(sound: Sound, filter?: Partial<SoundsFilter>): boolean;
 export declare function sortSounds(sounds: Sound[], by?: SoundsSort): Sound[];
 export declare function formatDuration(seconds: number | null | undefined): string;

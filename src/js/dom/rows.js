@@ -27,7 +27,7 @@ export function readRows(list) {
         const d = row.dataset;
         const sound = normalizeSound({
             id: d.wsId, url: d.url, title: d.title, type: d.type, bpm: d.bpm, key: d.key,
-            duration: d.duration, tags: d.tags, peaks: d.peaks, waveform: d.waveform, download: d.download,
+            duration: d.duration, tags: d.tags, peaks: d.peaks, waveform: d.waveform, download: d.download, loop: d.loop,
         }, sounds.length);
         if (!sound) { row.remove(); continue; }
         row.dataset.wsIndex = String(sounds.length);

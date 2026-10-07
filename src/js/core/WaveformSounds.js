@@ -43,7 +43,7 @@ import {emit, isTyping, LOG, pointerFraction} from '../shared/utils.js';
 export {DEFAULT_OPTIONS};
 
 /** An empty filter: everything matches. */
-const NO_FILTER = Object.freeze({query: '', type: '', key: '', bpmMin: '', bpmMax: ''});
+const NO_FILTER = Object.freeze({query: '', type: '', key: '', bpmMin: '', bpmMax: '', loop: ''});
 
 /** Debounce for typing in the search box and the BPM fields (ms). */
 const SEARCH_DELAY = 120;
@@ -183,6 +183,7 @@ export class WaveformSounds {
             engine: q('[data-ws-engine]'),
             status: q('[data-ws-status]'),
             chips: [...this.container.querySelectorAll('[data-ws-type]')],
+            loopFilter: [...this.container.querySelectorAll('[data-ws-loop-filter]')],
         };
         this.rows = indexRows(this.$.list);
     }
@@ -235,7 +236,7 @@ export class WaveformSounds {
     /* ── Input ────────────────────────────────────────────────────────── */
 
     /**
-     * Clicks: type chips, Show more, Clear, Loop, a touch tap on a waveform
+     * Clicks: type chips, loops or one-shots, Show more, Clear, Loop, a touch tap on a waveform
      * (seek), and anywhere else on a row (play/pause).
      * @private
      */
@@ -243,6 +244,8 @@ export class WaveformSounds {
         const t = e.target;
         const chip = t.closest('[data-ws-type]');
         if (chip) { this.setFilter({type: chip.dataset.wsType}); return; }
+        const seg = t.closest('[data-ws-loop-filter]');
+        if (seg) { this.setFilter({loop: seg.dataset.wsLoopFilter}); return; }
         if (t.closest('[data-ws-more]')) { this.showMore(); return; }
         if (t.closest('[data-ws-clear]')) { this.clearFilters(); return; }
         if (t.closest('[data-ws-loop]')) { this.setLoop(!this.loop); return; }
@@ -516,6 +519,7 @@ export class WaveformSounds {
         if ($.bpmMin && $.bpmMin.value !== String(f.bpmMin)) $.bpmMin.value = f.bpmMin;
         if ($.bpmMax && $.bpmMax.value !== String(f.bpmMax)) $.bpmMax.value = f.bpmMax;
         $.chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.wsType === (f.type || ''))));
+        $.loopFilter.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.wsLoopFilter === (f.loop || ''))));
     }
 
     /**
@@ -686,7 +690,9 @@ export class WaveformSounds {
     }
 
     /**
-     * Loop the current sound (auditioning a loop is the common case).
+     * Loop the current sound (auditioning a loop is the common case). When
+     * the list marks its loops (`loop: true` on any sound), only those
+     * repeat: a one-shot always plays once.
      * @param {boolean} on
      */
     setLoop(on) {
@@ -700,7 +706,18 @@ export class WaveformSounds {
      */
     _setLoop(on) {
         this.$?.loop?.setAttribute('aria-pressed', String(on));
-        if (this.engine?.audio) this.engine.audio.loop = on;
+        if (this.engine?.audio) this.engine.audio.loop = this._repeats();
+    }
+
+    /**
+     * Should the current sound repeat? The Loop toggle is on, and either
+     * the list doesn't say which sounds are loops or this one is.
+     * @private
+     */
+    _repeats() {
+        if (!this.loop) return false;
+        const marksLoops = this.sounds.some((s) => s.loop);
+        return !marksLoops || !!this.sounds[this.currentIndex]?.loop;
     }
 
     /**
@@ -724,7 +741,7 @@ export class WaveformSounds {
      * @private
      */
     _onEngineLoad() {
-        if (this.engine?.audio) this.engine.audio.loop = this.loop;
+        if (this.engine?.audio) this.engine.audio.loop = this._repeats();
         const sound = this.sounds[this.currentIndex];
         if (sound && !sound.peaks && this.engine?.waveformData?.length) {
             sound.peaks = resample(this.engine.waveformData, 96);

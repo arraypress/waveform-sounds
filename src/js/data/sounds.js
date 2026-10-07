@@ -138,7 +138,7 @@ export function titleFromUrl(url) {
  * Normalise one sound into the shape the runtime and renderer use.
  *
  * @param {Object} input - A sound: `{url, title?, type?, bpm?, key?,
- *   duration?, tags?, peaks?, waveform?, id?}`.
+ *   duration?, tags?, peaks?, waveform?, download?, loop?, id?}`.
  * @param {number} index - Its position (used for a fallback id).
  * @param {number} [peakScale=1] - Scale of an integer `peaks` array.
  * @returns {import('../../../index').Sound|null} The sound, or null if it has
@@ -164,7 +164,25 @@ export function normalizeSound(input, index, peakScale = 1) {
         peaks: decodePeaks(input.peaks, peakScale),
         waveform: input.waveform ? String(input.waveform) : null,
         download: input.download ? String(input.download) : null,
+        loop: isLoop(input.loop),
     };
+}
+
+/**
+ * The values of the loops-or-one-shots filter. A sound is a loop only when
+ * it says so (`loop: true`); everything else is a one-shot.
+ */
+export const LOOP_FILTERS = ['loop', 'one-shot'];
+
+/**
+ * Is this a loop? Only an explicit yes counts: `true`, or `"true"` / `"1"`
+ * as an attribute or a CSV-ish manifest writes it. Unset is a one-shot.
+ *
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+export function isLoop(value) {
+    return value === true || value === 1 || value === 'true' || value === '1';
 }
 
 /**
@@ -205,32 +223,37 @@ export function normalizeSounds(list, peakScale = 1) {
 
 /**
  * What the filter controls offer, derived from the sounds: each type with
- * its count (in first-seen order), each key (in musical order), and the
- * BPM range. A control with nothing to offer is not rendered.
+ * its count (in first-seen order), each key (in musical order), the BPM
+ * range, and how many are loops and one-shots. A control with nothing to
+ * offer is not rendered.
  *
  * @param {import('../../../index').Sound[]} sounds
- * @returns {{types: {name: string, count: number}[], keys: string[], bpm: {min: number, max: number}|null, hasDuration: boolean}}
+ * @returns {{types: {name: string, count: number}[], keys: string[], bpm: {min: number, max: number}|null, hasDuration: boolean, loops: number, oneShots: number}}
  */
 export function facets(sounds) {
     const types = new Map();
     const keys = new Set();
-    let min = Infinity, max = -Infinity, hasDuration = false;
+    let min = Infinity, max = -Infinity, hasDuration = false, loops = 0;
     for (const s of sounds) {
         if (s.type) types.set(s.type, (types.get(s.type) || 0) + 1);
         if (s.key) keys.add(s.key);
         if (s.bpm != null) { min = Math.min(min, s.bpm); max = Math.max(max, s.bpm); }
         if (s.duration != null) hasDuration = true;
+        if (s.loop) loops++;
     }
     return {
         types: [...types].map(([name, count]) => ({name, count})),
         keys: [...keys].sort((a, b) => keyRank(a) - keyRank(b) || a.localeCompare(b)),
         bpm: min === Infinity ? null : {min, max},
         hasDuration,
+        loops,
+        oneShots: sounds.length - loops,
     };
 }
 
 /**
- * Does a sound match the filter? Every set criterion must hold.
+ * Does a sound match the filter? Every set criterion must hold. `loop` is
+ * `'loop'` (loops only), `'one-shot'` (everything else) or empty (both).
  *
  * `query` matches the title, type, key and tags with
  * `@arraypress/text`'s `matchesAll`: every word, in any order, forgiving
@@ -245,6 +268,8 @@ export function facets(sounds) {
 export function matches(sound, filter = {}) {
     if (filter.type && sound.type !== filter.type) return false;
     if (filter.key && sound.key !== normalizeKey(filter.key)) return false;
+    if (filter.loop === 'loop' && !sound.loop) return false;
+    if (filter.loop === 'one-shot' && sound.loop) return false;
     const lo = Number(filter.bpmMin), hi = Number(filter.bpmMax);
     if ((filter.bpmMin != null && filter.bpmMin !== '' && Number.isFinite(lo)) ||
         (filter.bpmMax != null && filter.bpmMax !== '' && Number.isFinite(hi))) {

@@ -6,6 +6,27 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-10-07
+
+### Added
+
+- **Loops and one-shots.** A sound can be marked `loop: true`; anything
+  else is a one-shot. Marking loops does three things:
+  - a small loop icon beside the name (with "Loop" for screen readers);
+  - an **All / Loops / One-shots** filter, offered only when the list has
+    both kinds (`filters` entry `'loop'`, on by default; in the address
+    as `?loop=loop` / `?loop=one-shot` with `urlState`);
+  - the Loop toggle repeats only loops. A one-shot always plays once.
+  A list that marks no loops behaves exactly as before.
+- `isLoop()` and `LOOP_FILTERS` in the data module; `facets()` reports
+  `loops` and `oneShots`; four new strings (`loopFilter`, `loops`,
+  `oneShots`, `isLoop`).
+
+### Changed
+
+- The title cell wraps its text in `.ws-title-text` (so a loop's icon can
+  sit after an ellipsised name). Styling `.ws-title` still works.
+
 ## [0.1.3] — 2026-10-07
 
 ### Fixed

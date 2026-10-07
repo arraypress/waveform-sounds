@@ -139,6 +139,39 @@ describe('toolbarPlan', () => {
         expect(plan(many, {maxTypeChips: 2}).types).toBe('menu');
         expect(plan(many, {filters: ['type'], sorts: ['title']})).toMatchObject({key: false, bpm: false, sorts: []});
     });
+    it('offers loops or one-shots only for a list with both', () => {
+        const mixed = [{url: '/a.mp3', loop: true}, {url: '/b.mp3'}];
+        expect(plan(mixed).loops).toBe(true);
+        expect(plan([{url: '/a.mp3', loop: true}, {url: '/b.mp3', loop: true}]).loops).toBe(false);
+        expect(plan([{url: '/a.mp3'}, {url: '/b.mp3'}]).loops).toBe(false);
+        expect(plan(mixed, {filters: ['type']}).loops).toBe(false);
+    });
+});
+
+describe('loops in the markup', () => {
+    // Server-side (no DOM here): string checks on the renderer's output.
+    const html = renderSounds([{url: '/a.mp3', title: 'Drum Loop', loop: true}, {url: '/b.mp3', title: 'Kick'}]);
+    const rowsOf = (markup) => markup.split('<li class="ws-row"').slice(1);
+
+    it('renders the three-way filter, All pressed', () => {
+        expect(html).toContain('<div class="ws-seg" role="group" aria-label="Loops or one-shots">');
+        expect(html).toMatch(/data-ws-loop-filter="" aria-pressed="true"><span>All<\/span>/);
+        expect(html).toMatch(/data-ws-loop-filter="loop" aria-pressed="false"><span>Loops<\/span>/);
+        expect(html).toMatch(/data-ws-loop-filter="one-shot" aria-pressed="false"><span>One-shots<\/span>/);
+    });
+
+    it('marks a loop row (attribute + icon with a text alternative); a one-shot carries nothing', () => {
+        const [loop, shot] = rowsOf(html);
+        expect(loop).toContain('data-loop="true"');
+        expect(loop).toContain('<span class="ws-title-text">Drum Loop</span>');
+        expect(loop).toMatch(/class="ws-loop-mark"[^>]*>.*<span class="ws-sr">Loop<\/span>/);
+        expect(shot).not.toContain('data-loop');
+        expect(shot).not.toContain('ws-loop-mark');
+    });
+
+    it('no filter for a list without loops', () => {
+        expect(renderSounds([{url: '/a.mp3'}, {url: '/b.mp3'}])).not.toContain('ws-seg');
+    });
 });
 
 describe('idBase', () => {

@@ -56,6 +56,21 @@ Every control can go. No BPM anywhere:
 {filters: ['type', 'key'], columns: ['type', 'key', 'duration'], sorts: ['default', 'title', 'key']}
 ```
 
+## Loops and one-shots
+
+A sound is a one-shot unless it says otherwise. Mark loops with `loop: true`:
+
+```js
+{url: '/previews/drums-01.mp3', title: 'Drums 01', bpm: 128, loop: true}
+```
+
+A loop gets a small loop icon beside its name. Once a list has both kinds,
+a **All / Loops / One-shots** filter appears (`filters` entry `'loop'`;
+drop it to hide the control). And the Loop toggle repeats only loops: a
+one-shot always plays once. A list that marks nothing works as before.
+`waveform-gen --manifest` sets `loop: true` for files whose folder or name
+contains the word "loop".
+
 ## Download links
 
 Optional, per sound — a free sample, the `.mid` of a MIDI preview. Rows
@@ -70,7 +85,7 @@ It's a plain `<a download>`: gating (an email, a login) is the site's job.
 ## Filters in the address
 
 `urlState: true` keeps the filters in the URL —
-`?q=bass&type=Bass+loops&key=Fm&bpm=120-130&sort=bpm` — so a filtered list
+`?q=bass&type=Bass+loops&key=Fm&bpm=120-130&loop=one-shot&sort=bpm` — so a filtered list
 can be shared and survives a refresh. `urlState: 'pack'` prefixes the names
 (`pack-q`, `pack-type`, …) when a page has more than one list. It uses
 `replaceState`, so filtering adds no back-button entries; values the data

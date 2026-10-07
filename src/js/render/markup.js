@@ -41,13 +41,14 @@ export function idBase(sounds) {
 /**
  * Which controls the toolbar shows. Each appears only when it's enabled
  * AND the data gives it something to do: no type filter for one type, no
- * key menu for one key, no BPM range without a spread of BPMs, no sort
- * menu with one usable order. Types past `maxTypeChips` become a menu (a
+ * key menu for one key, no BPM range without a spread of BPMs, no loops
+ * filter unless the list has both loops and one-shots, no sort menu with
+ * one usable order. Types past `maxTypeChips` become a menu (a
  * pack has a handful; a whole library can have fifty).
  *
  * @param {ReturnType<typeof facets>} f - The sounds' facets.
  * @param {ReturnType<typeof resolveRenderOptions>} o - Resolved options.
- * @returns {{types: 'chips'|'menu'|null, key: boolean, bpm: boolean, sorts: string[], search: boolean, loop: boolean, count: boolean}}
+ * @returns {{types: 'chips'|'menu'|null, key: boolean, bpm: boolean, loops: boolean, sorts: string[], search: boolean, loop: boolean, count: boolean}}
  */
 export function toolbarPlan(f, o) {
     const typed = o.filters.includes('type') && f.types.length > 1;
@@ -56,6 +57,7 @@ export function toolbarPlan(f, o) {
         types: !typed ? null : f.types.length > o.maxTypeChips ? 'menu' : 'chips',
         key: o.filters.includes('key') && f.keys.length > 1,
         bpm: o.filters.includes('bpm') && f.bpm !== null && f.bpm.max > f.bpm.min,
+        loops: o.filters.includes('loop') && f.loops > 0 && f.oneShots > 0,
         sorts: sorts.length > 1 ? sorts : [],
         search: !!o.search,
         loop: !!o.loopToggle,
@@ -135,6 +137,16 @@ function renderBpmRange(s, range) {
     );
 }
 
+/**
+ * Loops or one-shots: three buttons, one pressed ('' = both).
+ */
+function renderLoopFilter(s) {
+    const button = (value, label) => h('button', {type: 'button', class: 'ws-seg-btn', 'data-ws-loop-filter': value, 'aria-pressed': String(value === '')},
+        h('span', {}, text(label)));
+    return h('div', {class: 'ws-seg', role: 'group', 'aria-label': s.loopFilter},
+        button('', s.all), button('loop', s.loops), button('one-shot', s.oneShots));
+}
+
 /** The Loop toggle. */
 function renderLoopToggle(s) {
     return h('button', {type: 'button', class: 'ws-loop', 'data-ws-loop': true, 'aria-pressed': 'false'}, ICONS.loop, h('span', {}, text(s.loop)));
@@ -148,7 +160,7 @@ function renderChip(value, label, count, pressed) {
 
 /**
  * The toolbar: search, the controls row (type menu, key menu, BPM range,
- * sort menu, Loop) and the meta row (type chips + the count).
+ * loops or one-shots, sort menu, Loop) and the meta row (type chips + the count).
  *
  * @param {ReturnType<typeof toolbarPlan>} plan
  * @param {Object} ctx - `{o, s, f, total, id}` from {@link renderSounds}.
@@ -166,6 +178,7 @@ function renderToolbar(plan, {o, s, f, total, id}) {
             options: [{value: '', label: s.anyKey}, ...f.keys.map((k) => ({value: k, label: k}))],
         }),
         plan.bpm && renderBpmRange(s, f.bpm),
+        plan.loops && renderLoopFilter(s),
         plan.sorts.length > 0 && menu('sort', {
             label: s.sort, prefix: s.sortBy, value: plan.sorts[0],
             options: plan.sorts.map((k) => ({value: k, label: s[SORT_LABEL_KEYS[k]]})),
@@ -228,10 +241,15 @@ export function renderRow(sound, index, o, hidden = false) {
         'data-peaks': sound.peaks ? encodePeaks(sound.peaks) : null,
         'data-waveform': sound.waveform,
         'data-download': sound.download,
+        'data-loop': sound.loop ? 'true' : null,
         hidden,
     },
         h('button', {type: 'button', class: 'ws-play', 'aria-pressed': 'false', 'aria-label': fill(s.play, vars)}, ICONS.play, ICONS.pause),
-        h('span', {class: 'ws-cell ws-title'}, text(sound.title)),
+        h('span', {class: 'ws-cell ws-title'},
+            h('span', {class: 'ws-title-text'}, text(sound.title)),
+            // A loop says so beside its name; a one-shot carries nothing.
+            sound.loop && h('span', {class: 'ws-loop-mark', title: s.isLoop}, ICONS.loop, h('span', {class: 'ws-sr'}, text(s.isLoop))),
+        ),
         // Wide rows: `display: contents` makes each cell a column. Narrow
         // rows: one line under the title.
         cells.length > 0 && h('span', {class: 'ws-cells'}, cells),

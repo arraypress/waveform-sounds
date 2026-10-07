@@ -17,6 +17,11 @@ describe('rows', () => {
         expect(sounds[0]).toMatchObject({bpm: 120, download: '/a.wav'});
     });
 
+    it('readRows keeps which sounds are loops', () => {
+        const sounds = readRows(listOf([{url: '/a.mp3', loop: true}, {url: '/b.mp3'}]));
+        expect(sounds.map((s) => s.loop)).toEqual([true, false]);
+    });
+
     it('readRows renumbers around a missing or unusable row', () => {
         const list = listOf(SOUNDS);
         list.querySelector('[data-ws-index="0"]').removeAttribute('data-url');
