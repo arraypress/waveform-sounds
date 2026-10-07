@@ -370,6 +370,49 @@ describe('playback', () => {
         expect(audio.loop).toBe(false);
     });
 
+    it('Loop starts on for a list that marks loops, off otherwise, and an option or setLoop wins', async () => {
+        const marked = [{url: '/l.mp3', title: 'Drum Loop', loop: true}, {url: '/k.mp3', title: 'Kick'}];
+        let ws = await make({sounds: marked});
+        expect(ws.loop).toBe(true);
+        expect(host.querySelector('[data-ws-loop]').getAttribute('aria-pressed')).toBe('true');
+        ws.destroy();
+        ws = await make();
+        expect(ws.loop).toBe(false);
+        ws.destroy();
+        ws = await make({sounds: marked, loop: false});
+        expect(ws.loop).toBe(false);
+        ws.destroy();
+        ws = new WaveformSounds(host, {sounds: marked});
+        ws.setLoop(false); // before ready: kept
+        await ws.ready;
+        expect(ws.loop).toBe(false);
+    });
+
+    it('the BPM handles filter (an end is open), cannot cross, and clear resets', async () => {
+        vi.useFakeTimers();
+        const ws = new WaveformSounds(host, {sounds: SOUNDS});
+        await vi.runAllTimersAsync();
+        await ws.ready;
+        const min = host.querySelector('[data-ws-bpm-min]'), max = host.querySelector('[data-ws-bpm-max]');
+        const label = () => host.querySelector('[data-ws-menu="bpm"] [data-ws-menu-value]').textContent;
+        expect([min.min, min.max, min.value, max.value]).toEqual(['124', '140', '124', '140']);
+        min.value = '125';
+        min.dispatchEvent(new Event('input', {bubbles: true}));
+        expect(label()).toBe('125–140 BPM'); // the label follows the drag at once
+        expect(ws.filter.bpmMin).toBe(''); // the list waits for it to settle
+        await vi.advanceTimersByTimeAsync(300);
+        expect(ws.filter).toMatchObject({bpmMin: '125', bpmMax: ''});
+        expect(visibleTitles()).toEqual(['Bass Loop 01', 'Drum Loop 01']);
+        max.value = '120'; // dragged past the lower handle: stops at it
+        max.dispatchEvent(new Event('input', {bubbles: true}));
+        expect(max.value).toBe('125');
+        host.querySelector('[data-ws-bpm-clear]').click();
+        expect(ws.filter).toMatchObject({bpmMin: '', bpmMax: ''});
+        expect(label()).toBe('Any BPM');
+        expect([min.value, max.value]).toEqual(['124', '140']);
+        expect(visibleTitles()).toHaveLength(4);
+    });
+
     it('the loops filter: All / Loops / One-shots, kept in sync', async () => {
         const ws = await make({sounds: [{url: '/l.mp3', title: 'Drum Loop', loop: true}, {url: '/k.mp3', title: 'Kick'}, {url: '/s.mp3', title: 'Snare'}]});
         const btn = (v) => host.querySelector(`[data-ws-loop-filter="${v}"]`);

@@ -104,16 +104,6 @@
 }
 
 .ws-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
-.ws-bpm-range input {
-    height: 2.75rem;
-    border: 1px solid var(--ws-border);
-    border-radius: var(--ws-control-radius);
-    background: var(--ws-field);
-    color: inherit;
-    font: inherit;
-    font-size: 0.9em;
-}
-
 /* ── Dropdowns (type / key / sort) ──────────────────────────────────── */
 .ws-menu { position: relative; }
 .ws-menu-btn {
@@ -185,9 +175,105 @@
 .ws-menu-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-menu-count { font-family: var(--ws-mono); font-size: 0.85em; color: var(--ws-muted); }
 .ws-menu-none { margin: 0; padding: 0.6rem; color: var(--ws-muted); font-size: 0.9em; }
-.ws-bpm-range { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--ws-muted); font-size: 0.9em; }
-.ws-bpm-range input { width: 5rem; padding: 0 0.85rem; -moz-appearance: textfield; }
-.ws-bpm-range input::-webkit-inner-spin-button { display: none; }
+
+/* ── The BPM menu: a panel with a two-handle range ───────────────────── */
+.ws-bpm-pop { width: 17rem; padding: 0.85rem 1rem 0.7rem; }
+.ws-bpm-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.6rem; }
+.ws-bpm-readout { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ws-bpm-clear {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ws-muted);
+    font: inherit;
+    font-size: 0.85em;
+    cursor: pointer;
+}
+.ws-bpm-clear:hover { color: inherit; text-decoration: underline; }
+
+/* Two native range inputs stacked on one track. The track and the filled
+ * span are drawn by the wrapper (--ws-lo / --ws-hi are the handles' 0..1
+ * positions, set by the runtime); the inputs contribute only their thumbs.
+ * A thumb's centre runs from half a thumb in from each end, hence the
+ * calc() on the fill. */
+.ws-range {
+    --ws-thumb: 18px;
+    --ws-lo: 0;
+    --ws-hi: 1;
+    position: relative;
+    height: 1.75rem;
+}
+.ws-range::before,
+.ws-range::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    height: 4px;
+    border-radius: 2px;
+    transform: translateY(-50%);
+}
+.ws-range::before { left: 0; right: 0; background: var(--ws-border); }
+.ws-range::after {
+    left: calc(var(--ws-thumb) / 2 + var(--ws-lo) * (100% - var(--ws-thumb)));
+    right: calc(var(--ws-thumb) / 2 + (1 - var(--ws-hi)) * (100% - var(--ws-thumb)));
+    background: var(--ws-accent);
+    opacity: 0.35;
+}
+.ws-range.is-active::after { opacity: 1; }
+.ws-range-input {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    background: none;
+    pointer-events: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+/* When the handles meet, the lower one goes on top (it's the one that can
+ * still move: left). */
+.ws-range.is-min-top [data-ws-bpm-min] { z-index: 2; }
+.ws-range-input::-webkit-slider-runnable-track { height: 100%; background: none; }
+.ws-range-input::-moz-range-track { background: none; }
+.ws-range-input::-webkit-slider-thumb {
+    width: var(--ws-thumb);
+    height: var(--ws-thumb);
+    margin-top: calc((1.75rem - var(--ws-thumb)) / 2);
+    border: 2px solid var(--ws-surface, Canvas);
+    border-radius: 50%;
+    background: var(--ws-accent);
+    box-shadow: 0 0 0 1px var(--ws-border);
+    cursor: grab;
+    pointer-events: auto;
+    -webkit-appearance: none;
+    appearance: none;
+}
+.ws-range-input::-moz-range-thumb {
+    width: var(--ws-thumb);
+    height: var(--ws-thumb);
+    box-sizing: border-box;
+    border: 2px solid var(--ws-surface, Canvas);
+    border-radius: 50%;
+    background: var(--ws-accent);
+    box-shadow: 0 0 0 1px var(--ws-border);
+    cursor: grab;
+    pointer-events: auto;
+}
+.ws-range-input:active::-webkit-slider-thumb { cursor: grabbing; }
+.ws-range-input:focus-visible { outline: none; }
+.ws-range-input:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--ws-accent); }
+.ws-range-input:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--ws-accent); }
+.ws-range-ends {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.15rem;
+    color: var(--ws-muted);
+    font-family: var(--ws-mono);
+    font-size: 0.75em;
+    font-variant-numeric: tabular-nums;
+}
 .ws-loop {
     display: inline-flex;
     align-items: center;
@@ -406,7 +492,9 @@
 @media (pointer: coarse) {
     .ws-play, .ws-download { width: 2.75rem; height: 2.75rem; }
     .ws-chip { height: 2.5rem; }
-    .ws-search-input, .ws-menu-search, .ws-bpm-range input { font-size: 16px; }
+    .ws-search-input, .ws-menu-search { font-size: 16px; }
+    .ws-range { --ws-thumb: 24px; height: 2.25rem; }
+    .ws-range-input::-webkit-slider-thumb { margin-top: calc((2.25rem - var(--ws-thumb)) / 2); }
     .ws-menu-option { padding: 0.75rem 0.6rem; }
 }
 

@@ -25,7 +25,7 @@ export const DEFAULT_OPTIONS = {
     progressColor: null,
     barWidth: 2,
     barGap: 1,
-    loop: false,
+    loop: null,
     autoAdvance: false,
     arrowAudition: true,
     idPrefix: null,

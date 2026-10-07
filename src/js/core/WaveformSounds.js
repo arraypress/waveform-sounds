@@ -33,9 +33,10 @@ import {Menus} from '../dom/menus.js';
 import {limitToReveal, pageWindow, rowTarget, seekTarget} from '../data/navigation.js';
 import {DEFAULT_OPTIONS, mergeOptions, readDataOptions} from './options.js';
 import {resolveRenderOptions} from '../render/options.js';
-import {renderSounds} from '../render/markup.js';
+import {loopsByDefault, renderSounds} from '../render/markup.js';
 import {indexRows, orderRows, readRows, visibleRows} from '../dom/rows.js';
-import {countText, DEFAULT_STRINGS, fill} from '../render/strings.js';
+import {bpmLabel, countText, DEFAULT_STRINGS, fill} from '../render/strings.js';
+import {bpmFilterFromRange, bpmFraction, bpmRangeFromFilter} from '../data/bpm.js';
 import {pageSurface, resolveCssColor} from '../dom/colors.js';
 import {readUrlState, urlKeys, writeUrlState} from '../data/url-state.js';
 import {emit, isTyping, LOG, pointerFraction} from '../shared/utils.js';
@@ -131,7 +132,11 @@ export class WaveformSounds {
         this._bind();
         this._observe();
         this._resolveColors();
+        // Unless set (option or an early setLoop()), Loop starts on exactly
+        // when the list marks loops — only those repeat.
+        if (!this._loopSet) this.loop = loopsByDefault(this.options.loop, facets(this.sounds));
         this._setLoop(this.loop);
+        this._bpmExtent = facets(this.sounds).bpm;
 
         // The starting order is the first one offered, unless setSort()
         // already chose one; then the address may override both.
@@ -176,6 +181,10 @@ export class WaveformSounds {
             search: q('[data-ws-search]'),
             bpmMin: q('[data-ws-bpm-min]'),
             bpmMax: q('[data-ws-bpm-max]'),
+            bpmRange: q('[data-ws-bpm-range]'),
+            bpmReadout: q('[data-ws-bpm-readout]'),
+            bpmClear: q('[data-ws-bpm-clear]'),
+            bpmLabel: q('[data-ws-menu="bpm"] [data-ws-menu-value]'),
             loop: q('[data-ws-loop]'),
             count: q('[data-ws-count]'),
             empty: q('[data-ws-empty]'),
@@ -211,12 +220,22 @@ export class WaveformSounds {
             if (e.key === 'ArrowDown') { e.preventDefault(); this._focusRow(visibleRows($.list)[0]); }
             if (e.key === 'Escape' && $.search.value) { e.preventDefault(); $.search.value = ''; this.setFilter({query: ''}); }
         }, sig);
-        const onBpm = () => {
+        // The BPM handles: the label and the track follow the drag at once;
+        // the list re-filters once it settles. A handle can't pass the other.
+        const onBpm = (moved) => {
+            const lo = Number($.bpmMin.value), hi = Number($.bpmMax.value);
+            if (lo > hi) moved.value = String(moved === $.bpmMin ? hi : lo);
+            const f = bpmFilterFromRange(Number($.bpmMin.value), Number($.bpmMax.value), this._bpmExtent);
+            this._showBpm(f);
             clearTimeout(bpmTimer);
-            bpmTimer = setTimeout(() => this.setFilter({bpmMin: $.bpmMin?.value ?? '', bpmMax: $.bpmMax?.value ?? ''}), BPM_DELAY);
+            bpmTimer = setTimeout(() => this.setFilter(f), BPM_DELAY);
         };
-        $.bpmMin?.addEventListener('input', onBpm, sig);
-        $.bpmMax?.addEventListener('input', onBpm, sig);
+        $.bpmMin?.addEventListener('input', () => onBpm($.bpmMin), sig);
+        $.bpmMax?.addEventListener('input', () => onBpm($.bpmMax), sig);
+        $.bpmClear?.addEventListener('click', () => {
+            clearTimeout(bpmTimer);
+            this.setFilter({bpmMin: '', bpmMax: ''});
+        }, sig);
 
         this.menus = new Menus(root, {
             signal: this._ctl.signal,
@@ -516,10 +535,33 @@ export class WaveformSounds {
         this.menus?.setValue('type', f.type || '');
         this.menus?.setValue('key', f.key || '');
         this.menus?.setValue('sort', this.sortBy);
-        if ($.bpmMin && $.bpmMin.value !== String(f.bpmMin)) $.bpmMin.value = f.bpmMin;
-        if ($.bpmMax && $.bpmMax.value !== String(f.bpmMax)) $.bpmMax.value = f.bpmMax;
+        if ($.bpmMin && $.bpmMax && this._bpmExtent) {
+            const {lo, hi} = bpmRangeFromFilter(f, this._bpmExtent);
+            $.bpmMin.value = String(lo);
+            $.bpmMax.value = String(hi);
+            this._showBpm(f);
+        }
         $.chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.wsType === (f.type || ''))));
         $.loopFilter.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.wsLoopFilter === (f.loop || ''))));
+    }
+
+    /**
+     * Show a BPM filter in its menu: the button label, the panel's readout,
+     * the filled part of the track, and which handle sits on top (the one
+     * that can still move, when they meet).
+     * @private
+     */
+    _showBpm(f) {
+        const $ = this.$, extent = this._bpmExtent;
+        if (!$?.bpmRange || !extent) return;
+        const {lo, hi} = bpmRangeFromFilter(f, extent);
+        if ($.bpmLabel) $.bpmLabel.textContent = bpmLabel(f, extent, this.strings);
+        if ($.bpmReadout) $.bpmReadout.textContent = fill(this.strings.bpmRange, {min: lo, max: hi});
+        // CSSOM, not a style attribute: works under a strict CSP.
+        $.bpmRange.style.setProperty('--ws-lo', String(bpmFraction(lo, extent)));
+        $.bpmRange.style.setProperty('--ws-hi', String(bpmFraction(hi, extent)));
+        $.bpmRange.classList.toggle('is-min-top', lo >= hi && lo > extent.min);
+        $.bpmRange.classList.toggle('is-active', lo > extent.min || hi < extent.max);
     }
 
     /**
@@ -696,6 +738,7 @@ export class WaveformSounds {
      * @param {boolean} on
      */
     setLoop(on) {
+        this._loopSet = true;
         this.loop = !!on;
         this._setLoop(this.loop);
     }

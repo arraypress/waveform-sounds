@@ -1,6 +1,6 @@
 import {describe, it, expect, vi} from 'vitest';
 import {optionMatches, stepIndex, Menus} from '../../../src/js/dom/menus.js';
-import {renderMenu} from '../../../src/js/render/markup.js';
+import {renderMenu, renderSounds} from '../../../src/js/render/markup.js';
 
 describe('pure helpers', () => {
     it('optionMatches: folded substring; empty query matches all', () => {
@@ -58,5 +58,22 @@ describe('Menus', () => {
         menu.querySelector('[data-ws-menu-btn]').click();
         expect(menus.openMenu).toBeNull();
         root.remove();
+    });
+
+    it('a panel menu (no listbox) opens to its first field and closes on Escape', () => {
+        const root = document.createElement('div');
+        root.innerHTML = renderSounds([{url: '/a.mp3', bpm: 100}, {url: '/b.mp3', bpm: 120}], {search: false, sorts: [], loopToggle: false});
+        document.body.appendChild(root);
+        const ctl = new AbortController();
+        const menus = new Menus(root, {onPick: vi.fn(), signal: ctl.signal});
+        const menu = root.querySelector('[data-ws-menu="bpm"]');
+        menus.open(menu);
+        expect(menu.querySelector('[data-ws-menu-pop]').hidden).toBe(false);
+        expect(document.activeElement).toBe(menu.querySelector('[data-ws-bpm-min]'));
+        document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}));
+        expect(menus.openMenu).toBeNull();
+        expect(document.activeElement).toBe(menu.querySelector('[data-ws-menu-btn]'));
+        menus.setValue('bpm', 'x'); // a panel shows its own value: a no-op, not a throw
+        ctl.abort(); root.remove();
     });
 });

@@ -223,6 +223,20 @@ var ICONS = {
   loop: icon("M17 4l3 3-3 3V8H8a3 3 0 0 0-3 3v1H3v-1a5 5 0 0 1 5-5h9V4zM7 20l-3-3 3-3v2h9a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5H7v2z")
 };
 
+// src/js/data/bpm.js
+function bpmRangeFromFilter(filter, extent) {
+  const read = (v, fallback) => {
+    const n = Number(v);
+    return v === "" || v == null || !Number.isFinite(n) ? fallback : Math.min(Math.max(n, extent.min), extent.max);
+  };
+  const lo = read(filter.bpmMin, extent.min);
+  const hi = read(filter.bpmMax, extent.max);
+  return lo <= hi ? { lo, hi } : { lo: hi, hi: lo };
+}
+function hasBpmFilter(filter) {
+  return filter.bpmMin != null && filter.bpmMin !== "" || filter.bpmMax != null && filter.bpmMax !== "";
+}
+
 // src/js/render/strings.js
 var DEFAULT_STRINGS = {
   search: "Search sounds",
@@ -238,6 +252,8 @@ var DEFAULT_STRINGS = {
   bpm: "BPM",
   bpmMin: "Min BPM",
   bpmMax: "Max BPM",
+  anyBpm: "Any BPM",
+  bpmRange: "{min}\u2013{max} BPM",
   sort: "Sort",
   sortBy: "Sort by",
   sortDefault: "Default",
@@ -271,6 +287,11 @@ var SORT_LABEL_KEYS = {
 };
 function fill(template, vars = {}) {
   return String(template).replace(/\{(\w+)\}/g, (match, name) => name in vars ? String(vars[name]) : match);
+}
+function bpmLabel(filter, extent, strings = DEFAULT_STRINGS) {
+  if (!hasBpmFilter(filter)) return strings.anyBpm;
+  const { lo, hi } = bpmRangeFromFilter(filter, extent);
+  return fill(strings.bpmRange, { min: lo, max: hi });
 }
 function countText(shown, total, strings = DEFAULT_STRINGS) {
   if (shown !== total) return fill(strings.countFiltered, { count: shown, total });
@@ -345,6 +366,9 @@ function toolbarPlan(f, o) {
     count: !!o.showCount
   };
 }
+function loopsByDefault(loop, f) {
+  return loop == null ? f.loops > 0 : !!loop;
+}
 function renderSearch(s) {
   return h(
     "label",
@@ -398,15 +422,45 @@ function renderMenu(name, m) {
     )
   );
 }
-function renderBpmRange(s, range) {
-  const field = (attr, label, placeholder) => h("input", { type: "number", inputmode: "numeric", [attr]: true, "aria-label": label, placeholder, min: "0", step: "1" });
+function renderBpmMenu({ id, s, range }) {
+  const popId = `${id}-bpm-pop`;
+  const handle = (attr, label, value) => h("input", {
+    type: "range",
+    class: "ws-range-input",
+    [attr]: true,
+    "aria-label": label,
+    min: range.min,
+    max: range.max,
+    step: "1",
+    value
+  });
   return h(
-    "span",
-    { class: "ws-bpm-range", role: "group", "aria-label": s.bpm },
-    field("data-ws-bpm-min", s.bpmMin, range.min),
-    h("span", { "aria-hidden": "true" }, "\u2013"),
-    field("data-ws-bpm-max", s.bpmMax, range.max),
-    h("span", { class: "ws-bpm-unit", "aria-hidden": "true" }, text(s.bpm))
+    "div",
+    { class: "ws-menu ws-menu--bpm", "data-ws-menu": "bpm" },
+    h(
+      "button",
+      { type: "button", class: "ws-menu-btn", "data-ws-menu-btn": true, "aria-haspopup": "dialog", "aria-expanded": "false", "aria-controls": popId },
+      h("span", { class: "ws-sr" }, text(`${s.bpm}: `)),
+      h("span", { class: "ws-menu-value", "data-ws-menu-value": true }, text(bpmLabel({}, range, s))),
+      ICONS.chevron
+    ),
+    h(
+      "div",
+      { class: "ws-menu-pop ws-bpm-pop", id: popId, role: "dialog", "aria-label": s.bpm, "data-ws-menu-pop": true, hidden: true },
+      h(
+        "div",
+        { class: "ws-bpm-head" },
+        h("span", { class: "ws-bpm-readout", "data-ws-bpm-readout": true, "aria-live": "polite" }, text(fill(s.bpmRange, range))),
+        h("button", { type: "button", class: "ws-bpm-clear", "data-ws-bpm-clear": true }, text(s.anyBpm))
+      ),
+      h(
+        "div",
+        { class: "ws-range", "data-ws-bpm-range": true },
+        handle("data-ws-bpm-min", s.bpmMin, range.min),
+        handle("data-ws-bpm-max", s.bpmMax, range.max)
+      ),
+      h("div", { class: "ws-range-ends", "aria-hidden": "true" }, h("span", {}, text(range.min)), h("span", {}, text(range.max)))
+    )
   );
 }
 function renderLoopFilter(s) {
@@ -423,8 +477,8 @@ function renderLoopFilter(s) {
     button("one-shot", s.oneShots)
   );
 }
-function renderLoopToggle(s) {
-  return h("button", { type: "button", class: "ws-loop", "data-ws-loop": true, "aria-pressed": "false" }, ICONS.loop, h("span", {}, text(s.loop)));
+function renderLoopToggle(s, pressed) {
+  return h("button", { type: "button", class: "ws-loop", "data-ws-loop": true, "aria-pressed": String(pressed) }, ICONS.loop, h("span", {}, text(s.loop)));
 }
 function renderChip(value, label, count, pressed) {
   return h(
@@ -450,7 +504,7 @@ function renderToolbar(plan, { o, s, f, total, id }) {
       placeholder: s.findKey,
       options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k }))]
     }),
-    plan.bpm && renderBpmRange(s, f.bpm),
+    plan.bpm && renderBpmMenu({ id, s, range: f.bpm }),
     plan.loops && renderLoopFilter(s),
     plan.sorts.length > 0 && menu("sort", {
       label: s.sort,
@@ -458,7 +512,7 @@ function renderToolbar(plan, { o, s, f, total, id }) {
       value: plan.sorts[0],
       options: plan.sorts.map((k) => ({ value: k, label: s[SORT_LABEL_KEYS[k]] }))
     }),
-    plan.loop && renderLoopToggle(s)
+    plan.loop && renderLoopToggle(s, loopsByDefault(o.loop, f))
   ].filter(Boolean);
   const chips = plan.types === "chips" && h(
     "div",

@@ -6,6 +6,8 @@
  * @module strings
  */
 
+import {bpmRangeFromFilter, hasBpmFilter} from '../data/bpm.js';
+
 /** The English defaults. */
 export const DEFAULT_STRINGS = {
     search: 'Search sounds',
@@ -21,6 +23,8 @@ export const DEFAULT_STRINGS = {
     bpm: 'BPM',
     bpmMin: 'Min BPM',
     bpmMax: 'Max BPM',
+    anyBpm: 'Any BPM',
+    bpmRange: '{min}–{max} BPM',
     sort: 'Sort',
     sortBy: 'Sort by',
     sortDefault: 'Default',
@@ -64,6 +68,21 @@ export const SORT_LABEL_KEYS = {
  */
 export function fill(template, vars = {}) {
     return String(template).replace(/\{(\w+)\}/g, (match, name) => (name in vars ? String(vars[name]) : match));
+}
+
+/**
+ * The BPM menu's label: "Any BPM", or the range the handles hold
+ * ("120–128 BPM"; an open end shows the pack's own end).
+ *
+ * @param {{bpmMin?: string|number, bpmMax?: string|number}} filter
+ * @param {{min: number, max: number}} extent - The pack's BPM range.
+ * @param {typeof DEFAULT_STRINGS} [strings]
+ * @returns {string}
+ */
+export function bpmLabel(filter, extent, strings = DEFAULT_STRINGS) {
+    if (!hasBpmFilter(filter)) return strings.anyBpm;
+    const {lo, hi} = bpmRangeFromFilter(filter, extent);
+    return fill(strings.bpmRange, {min: lo, max: hi});
 }
 
 /**

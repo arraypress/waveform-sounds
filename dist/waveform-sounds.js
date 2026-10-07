@@ -339,7 +339,7 @@
       value: menu.querySelector("[data-ws-menu-value]")
     };
   }
-  var focusOwner = (p) => p.search || p.list;
+  var focusOwner = (p) => p.search || p.list || p.pop.querySelector("input") || p.pop.querySelector("button");
   var optionsOf = (p, visibleOnly = false) => [...p.list.querySelectorAll('[role="option"]')].filter((o) => !visibleOnly || !o.hidden);
   var Menus = class {
     /**
@@ -371,6 +371,15 @@
             this.open(menu);
           }
         }, sig);
+        if (!p.list) {
+          p.pop.addEventListener("keydown", (e) => {
+            if (e.key !== "Escape") return;
+            e.preventDefault();
+            e.stopPropagation();
+            this.close(true);
+          }, sig);
+          continue;
+        }
         p.list.addEventListener("click", (e) => {
           const opt = e.target.closest('[role="option"]');
           if (opt) this._pick(name, opt.dataset.value);
@@ -405,8 +414,8 @@
       }
       menu.classList.remove("ws-menu--end");
       if (p.pop.getBoundingClientRect().right > this.container.getBoundingClientRect().right + 1) menu.classList.add("ws-menu--end");
-      this._activate(menu, p.list.querySelector('[role="option"][aria-selected="true"]'));
-      focusOwner(p).focus();
+      if (p.list) this._activate(menu, p.list.querySelector('[role="option"][aria-selected="true"]'));
+      focusOwner(p)?.focus();
     }
     /**
      * Close the open menu, if any.
@@ -434,6 +443,7 @@
       const menu = this.menus[name];
       if (!menu) return;
       const p = partsOf(menu);
+      if (!p.list) return;
       let label = null;
       for (const opt of optionsOf(p)) {
         const on = opt.dataset.value === String(value ?? "");
@@ -571,6 +581,31 @@
     return pos >= limit ? pos + 1 : limit;
   }
 
+  // src/js/data/bpm.js
+  function bpmFilterFromRange(lo, hi, extent) {
+    const a = Math.min(lo, hi), b = Math.max(lo, hi);
+    return {
+      bpmMin: a > extent.min ? String(a) : "",
+      bpmMax: b < extent.max ? String(b) : ""
+    };
+  }
+  function bpmRangeFromFilter(filter, extent) {
+    const read = (v, fallback) => {
+      const n = Number(v);
+      return v === "" || v == null || !Number.isFinite(n) ? fallback : Math.min(Math.max(n, extent.min), extent.max);
+    };
+    const lo = read(filter.bpmMin, extent.min);
+    const hi = read(filter.bpmMax, extent.max);
+    return lo <= hi ? { lo, hi } : { lo: hi, hi: lo };
+  }
+  function bpmFraction(value, extent) {
+    const span = extent.max - extent.min;
+    return span > 0 ? Math.min(Math.max((value - extent.min) / span, 0), 1) : 0;
+  }
+  function hasBpmFilter(filter) {
+    return filter.bpmMin != null && filter.bpmMin !== "" || filter.bpmMax != null && filter.bpmMax !== "";
+  }
+
   // src/js/render/strings.js
   var DEFAULT_STRINGS = {
     search: "Search sounds",
@@ -586,6 +621,8 @@
     bpm: "BPM",
     bpmMin: "Min BPM",
     bpmMax: "Max BPM",
+    anyBpm: "Any BPM",
+    bpmRange: "{min}\u2013{max} BPM",
     sort: "Sort",
     sortBy: "Sort by",
     sortDefault: "Default",
@@ -619,6 +656,11 @@
   };
   function fill(template, vars = {}) {
     return String(template).replace(/\{(\w+)\}/g, (match, name) => name in vars ? String(vars[name]) : match);
+  }
+  function bpmLabel(filter, extent, strings = DEFAULT_STRINGS) {
+    if (!hasBpmFilter(filter)) return strings.anyBpm;
+    const { lo, hi } = bpmRangeFromFilter(filter, extent);
+    return fill(strings.bpmRange, { min: lo, max: hi });
   }
   function countText(shown, total, strings = DEFAULT_STRINGS) {
     if (shown !== total) return fill(strings.countFiltered, { count: shown, total });
@@ -677,7 +719,7 @@
     progressColor: null,
     barWidth: 2,
     barGap: 1,
-    loop: false,
+    loop: null,
     autoAdvance: false,
     arrowAudition: true,
     idPrefix: null,
@@ -810,6 +852,9 @@
       count: !!o.showCount
     };
   }
+  function loopsByDefault(loop, f) {
+    return loop == null ? f.loops > 0 : !!loop;
+  }
   function renderSearch(s) {
     return h(
       "label",
@@ -863,15 +908,45 @@
       )
     );
   }
-  function renderBpmRange(s, range) {
-    const field = (attr, label, placeholder) => h("input", { type: "number", inputmode: "numeric", [attr]: true, "aria-label": label, placeholder, min: "0", step: "1" });
+  function renderBpmMenu({ id, s, range }) {
+    const popId = `${id}-bpm-pop`;
+    const handle = (attr, label, value) => h("input", {
+      type: "range",
+      class: "ws-range-input",
+      [attr]: true,
+      "aria-label": label,
+      min: range.min,
+      max: range.max,
+      step: "1",
+      value
+    });
     return h(
-      "span",
-      { class: "ws-bpm-range", role: "group", "aria-label": s.bpm },
-      field("data-ws-bpm-min", s.bpmMin, range.min),
-      h("span", { "aria-hidden": "true" }, "\u2013"),
-      field("data-ws-bpm-max", s.bpmMax, range.max),
-      h("span", { class: "ws-bpm-unit", "aria-hidden": "true" }, text(s.bpm))
+      "div",
+      { class: "ws-menu ws-menu--bpm", "data-ws-menu": "bpm" },
+      h(
+        "button",
+        { type: "button", class: "ws-menu-btn", "data-ws-menu-btn": true, "aria-haspopup": "dialog", "aria-expanded": "false", "aria-controls": popId },
+        h("span", { class: "ws-sr" }, text(`${s.bpm}: `)),
+        h("span", { class: "ws-menu-value", "data-ws-menu-value": true }, text(bpmLabel({}, range, s))),
+        ICONS.chevron
+      ),
+      h(
+        "div",
+        { class: "ws-menu-pop ws-bpm-pop", id: popId, role: "dialog", "aria-label": s.bpm, "data-ws-menu-pop": true, hidden: true },
+        h(
+          "div",
+          { class: "ws-bpm-head" },
+          h("span", { class: "ws-bpm-readout", "data-ws-bpm-readout": true, "aria-live": "polite" }, text(fill(s.bpmRange, range))),
+          h("button", { type: "button", class: "ws-bpm-clear", "data-ws-bpm-clear": true }, text(s.anyBpm))
+        ),
+        h(
+          "div",
+          { class: "ws-range", "data-ws-bpm-range": true },
+          handle("data-ws-bpm-min", s.bpmMin, range.min),
+          handle("data-ws-bpm-max", s.bpmMax, range.max)
+        ),
+        h("div", { class: "ws-range-ends", "aria-hidden": "true" }, h("span", {}, text(range.min)), h("span", {}, text(range.max)))
+      )
     );
   }
   function renderLoopFilter(s) {
@@ -888,8 +963,8 @@
       button("one-shot", s.oneShots)
     );
   }
-  function renderLoopToggle(s) {
-    return h("button", { type: "button", class: "ws-loop", "data-ws-loop": true, "aria-pressed": "false" }, ICONS.loop, h("span", {}, text(s.loop)));
+  function renderLoopToggle(s, pressed) {
+    return h("button", { type: "button", class: "ws-loop", "data-ws-loop": true, "aria-pressed": String(pressed) }, ICONS.loop, h("span", {}, text(s.loop)));
   }
   function renderChip(value, label, count, pressed) {
     return h(
@@ -915,7 +990,7 @@
         placeholder: s.findKey,
         options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k }))]
       }),
-      plan.bpm && renderBpmRange(s, f.bpm),
+      plan.bpm && renderBpmMenu({ id, s, range: f.bpm }),
       plan.loops && renderLoopFilter(s),
       plan.sorts.length > 0 && menu("sort", {
         label: s.sort,
@@ -923,7 +998,7 @@
         value: plan.sorts[0],
         options: plan.sorts.map((k) => ({ value: k, label: s[SORT_LABEL_KEYS[k]] }))
       }),
-      plan.loop && renderLoopToggle(s)
+      plan.loop && renderLoopToggle(s, loopsByDefault(o.loop, f))
     ].filter(Boolean);
     const chips = plan.types === "chips" && h(
       "div",
@@ -1210,7 +1285,9 @@
       this._bind();
       this._observe();
       this._resolveColors();
+      if (!this._loopSet) this.loop = loopsByDefault(this.options.loop, facets(this.sounds));
       this._setLoop(this.loop);
+      this._bpmExtent = facets(this.sounds).bpm;
       this._sorts = availableSorts(this.render.sorts, facets(this.sounds));
       if (!this._sortSet) this.sortBy = this._sorts[0] || "default";
       this._readUrl();
@@ -1242,6 +1319,10 @@
         search: q("[data-ws-search]"),
         bpmMin: q("[data-ws-bpm-min]"),
         bpmMax: q("[data-ws-bpm-max]"),
+        bpmRange: q("[data-ws-bpm-range]"),
+        bpmReadout: q("[data-ws-bpm-readout]"),
+        bpmClear: q("[data-ws-bpm-clear]"),
+        bpmLabel: q('[data-ws-menu="bpm"] [data-ws-menu-value]'),
         loop: q("[data-ws-loop]"),
         count: q("[data-ws-count]"),
         empty: q("[data-ws-empty]"),
@@ -1281,12 +1362,20 @@
           this.setFilter({ query: "" });
         }
       }, sig);
-      const onBpm = () => {
+      const onBpm = (moved) => {
+        const lo = Number($.bpmMin.value), hi = Number($.bpmMax.value);
+        if (lo > hi) moved.value = String(moved === $.bpmMin ? hi : lo);
+        const f = bpmFilterFromRange(Number($.bpmMin.value), Number($.bpmMax.value), this._bpmExtent);
+        this._showBpm(f);
         clearTimeout(bpmTimer);
-        bpmTimer = setTimeout(() => this.setFilter({ bpmMin: $.bpmMin?.value ?? "", bpmMax: $.bpmMax?.value ?? "" }), BPM_DELAY);
+        bpmTimer = setTimeout(() => this.setFilter(f), BPM_DELAY);
       };
-      $.bpmMin?.addEventListener("input", onBpm, sig);
-      $.bpmMax?.addEventListener("input", onBpm, sig);
+      $.bpmMin?.addEventListener("input", () => onBpm($.bpmMin), sig);
+      $.bpmMax?.addEventListener("input", () => onBpm($.bpmMax), sig);
+      $.bpmClear?.addEventListener("click", () => {
+        clearTimeout(bpmTimer);
+        this.setFilter({ bpmMin: "", bpmMax: "" });
+      }, sig);
       this.menus = new Menus(root, {
         signal: this._ctl.signal,
         onPick: (name, value) => name === "sort" ? this.setSort(value) : this.setFilter({ [name]: value })
@@ -1578,10 +1667,31 @@
       this.menus?.setValue("type", f.type || "");
       this.menus?.setValue("key", f.key || "");
       this.menus?.setValue("sort", this.sortBy);
-      if ($.bpmMin && $.bpmMin.value !== String(f.bpmMin)) $.bpmMin.value = f.bpmMin;
-      if ($.bpmMax && $.bpmMax.value !== String(f.bpmMax)) $.bpmMax.value = f.bpmMax;
+      if ($.bpmMin && $.bpmMax && this._bpmExtent) {
+        const { lo, hi } = bpmRangeFromFilter(f, this._bpmExtent);
+        $.bpmMin.value = String(lo);
+        $.bpmMax.value = String(hi);
+        this._showBpm(f);
+      }
       $.chips.forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.wsType === (f.type || ""))));
       $.loopFilter.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.wsLoopFilter === (f.loop || ""))));
+    }
+    /**
+     * Show a BPM filter in its menu: the button label, the panel's readout,
+     * the filled part of the track, and which handle sits on top (the one
+     * that can still move, when they meet).
+     * @private
+     */
+    _showBpm(f) {
+      const $ = this.$, extent = this._bpmExtent;
+      if (!$?.bpmRange || !extent) return;
+      const { lo, hi } = bpmRangeFromFilter(f, extent);
+      if ($.bpmLabel) $.bpmLabel.textContent = bpmLabel(f, extent, this.strings);
+      if ($.bpmReadout) $.bpmReadout.textContent = fill(this.strings.bpmRange, { min: lo, max: hi });
+      $.bpmRange.style.setProperty("--ws-lo", String(bpmFraction(lo, extent)));
+      $.bpmRange.style.setProperty("--ws-hi", String(bpmFraction(hi, extent)));
+      $.bpmRange.classList.toggle("is-min-top", lo >= hi && lo > extent.min);
+      $.bpmRange.classList.toggle("is-active", lo > extent.min || hi < extent.max);
     }
     /**
      * Lay the rows out for the current filter, sort and page: order, hide,
@@ -1759,6 +1869,7 @@
      * @param {boolean} on
      */
     setLoop(on) {
+      this._loopSet = true;
       this.loop = !!on;
       this._setLoop(this.loop);
     }

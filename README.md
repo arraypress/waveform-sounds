@@ -66,8 +66,9 @@ A sound is a one-shot unless it says otherwise. Mark loops with `loop: true`:
 
 A loop gets a small loop icon beside its name. Once a list has both kinds,
 a **All / Loops / One-shots** filter appears (`filters` entry `'loop'`;
-drop it to hide the control). And the Loop toggle repeats only loops: a
-one-shot always plays once. A list that marks nothing works as before.
+drop it to hide the control). And the Loop toggle starts on and repeats
+only loops: a one-shot always plays once (turn it off to hear loops once).
+A list that marks nothing works as before.
 `waveform-gen --manifest` sets `loop: true` for files whose folder or name
 contains the word "loop".
 

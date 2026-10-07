@@ -20,7 +20,7 @@ import {availableSorts, encodePeaks, facets, formatDuration, normalizeSounds} fr
 import {h, text} from './html.js';
 import {ICONS} from './icons.js';
 import {RENDER_DEFAULTS, resolveRenderOptions} from './options.js';
-import {countText, DEFAULT_STRINGS, fill, SORT_LABEL_KEYS} from './strings.js';
+import {bpmLabel, countText, DEFAULT_STRINGS, fill, SORT_LABEL_KEYS} from './strings.js';
 import {hashString} from '../shared/utils.js';
 
 export {escapeHtml, RENDER_DEFAULTS, resolveRenderOptions, DEFAULT_STRINGS, countText, fill, availableSorts};
@@ -63,6 +63,19 @@ export function toolbarPlan(f, o) {
         loop: !!o.loopToggle,
         count: !!o.showCount,
     };
+}
+
+/**
+ * Does the Loop toggle start on? An explicit `loop` option decides; left
+ * unset, it's on exactly when the list marks loops (only those repeat, so
+ * a one-shot still plays once).
+ *
+ * @param {boolean|null|undefined} loop - The `loop` option.
+ * @param {{loops: number}} f - The sounds' facets.
+ * @returns {boolean}
+ */
+export function loopsByDefault(loop, f) {
+    return loop == null ? f.loops > 0 : !!loop;
 }
 
 /* ── Controls ───────────────────────────────────────────────────────── */
@@ -126,14 +139,41 @@ export function renderMenu(name, m) {
     );
 }
 
-/** The BPM range: two number fields, with the data's range as placeholders. */
-function renderBpmRange(s, range) {
-    const field = (attr, label, placeholder) => h('input', {type: 'number', inputmode: 'numeric', [attr]: true, 'aria-label': label, placeholder, min: '0', step: '1'});
-    return h('span', {class: 'ws-bpm-range', role: 'group', 'aria-label': s.bpm},
-        field('data-ws-bpm-min', s.bpmMin, range.min),
-        h('span', {'aria-hidden': 'true'}, '–'),
-        field('data-ws-bpm-max', s.bpmMax, range.max),
-        h('span', {class: 'ws-bpm-unit', 'aria-hidden': 'true'}, text(s.bpm)),
+/**
+ * The BPM menu: a button ("Any BPM" / "120–128 BPM") opening a panel with a
+ * two-handle range across the pack's own tempos. Each handle is a native
+ * range input (keyboard, screen readers and touch for free); the two share
+ * one track. The runtime (`menus.js` + the core) wires it.
+ *
+ * @param {Object} m
+ * @param {string} m.id - Id prefix for this list.
+ * @param {typeof DEFAULT_STRINGS} m.s
+ * @param {{min: number, max: number}} m.range - The pack's BPM range.
+ * @returns {string}
+ */
+function renderBpmMenu({id, s, range}) {
+    const popId = `${id}-bpm-pop`;
+    const handle = (attr, label, value) => h('input', {
+        type: 'range', class: 'ws-range-input', [attr]: true, 'aria-label': label,
+        min: range.min, max: range.max, step: '1', value,
+    });
+    return h('div', {class: 'ws-menu ws-menu--bpm', 'data-ws-menu': 'bpm'},
+        h('button', {type: 'button', class: 'ws-menu-btn', 'data-ws-menu-btn': true, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': popId},
+            h('span', {class: 'ws-sr'}, text(`${s.bpm}: `)),
+            h('span', {class: 'ws-menu-value', 'data-ws-menu-value': true}, text(bpmLabel({}, range, s))),
+            ICONS.chevron,
+        ),
+        h('div', {class: 'ws-menu-pop ws-bpm-pop', id: popId, role: 'dialog', 'aria-label': s.bpm, 'data-ws-menu-pop': true, hidden: true},
+            h('div', {class: 'ws-bpm-head'},
+                h('span', {class: 'ws-bpm-readout', 'data-ws-bpm-readout': true, 'aria-live': 'polite'}, text(fill(s.bpmRange, range))),
+                h('button', {type: 'button', class: 'ws-bpm-clear', 'data-ws-bpm-clear': true}, text(s.anyBpm)),
+            ),
+            h('div', {class: 'ws-range', 'data-ws-bpm-range': true},
+                handle('data-ws-bpm-min', s.bpmMin, range.min),
+                handle('data-ws-bpm-max', s.bpmMax, range.max),
+            ),
+            h('div', {class: 'ws-range-ends', 'aria-hidden': 'true'}, h('span', {}, text(range.min)), h('span', {}, text(range.max))),
+        ),
     );
 }
 
@@ -147,9 +187,9 @@ function renderLoopFilter(s) {
         button('', s.all), button('loop', s.loops), button('one-shot', s.oneShots));
 }
 
-/** The Loop toggle. */
-function renderLoopToggle(s) {
-    return h('button', {type: 'button', class: 'ws-loop', 'data-ws-loop': true, 'aria-pressed': 'false'}, ICONS.loop, h('span', {}, text(s.loop)));
+/** The Loop toggle, pressed or not. */
+function renderLoopToggle(s, pressed) {
+    return h('button', {type: 'button', class: 'ws-loop', 'data-ws-loop': true, 'aria-pressed': String(pressed)}, ICONS.loop, h('span', {}, text(s.loop)));
 }
 
 /** One type chip ('' = all). */
@@ -177,13 +217,13 @@ function renderToolbar(plan, {o, s, f, total, id}) {
             label: s.key, value: '', placeholder: s.findKey,
             options: [{value: '', label: s.anyKey}, ...f.keys.map((k) => ({value: k, label: k}))],
         }),
-        plan.bpm && renderBpmRange(s, f.bpm),
+        plan.bpm && renderBpmMenu({id, s, range: f.bpm}),
         plan.loops && renderLoopFilter(s),
         plan.sorts.length > 0 && menu('sort', {
             label: s.sort, prefix: s.sortBy, value: plan.sorts[0],
             options: plan.sorts.map((k) => ({value: k, label: s[SORT_LABEL_KEYS[k]]})),
         }),
-        plan.loop && renderLoopToggle(s),
+        plan.loop && renderLoopToggle(s, loopsByDefault(o.loop, f)),
     ].filter(Boolean);
 
     const chips = plan.types === 'chips' && h('div', {class: 'ws-types', role: 'group', 'aria-label': s.types},

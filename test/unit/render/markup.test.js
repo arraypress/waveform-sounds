@@ -1,7 +1,7 @@
 // @vitest-environment node
 // The renderer must run with no DOM: wrappers call it on the server.
 import {describe, it, expect} from 'vitest';
-import {renderSounds, renderSoundsElement, toolbarPlan, idBase} from '../../../src/js/render/markup.js';
+import {renderSounds, renderSoundsElement, toolbarPlan, idBase, loopsByDefault} from '../../../src/js/render/markup.js';
 import {facets, normalizeSounds} from '../../../src/js/data/sounds.js';
 import {resolveRenderOptions} from '../../../src/js/render/options.js';
 import * as renderEntry from '../../../src/js/render-entry.js';
@@ -179,5 +179,34 @@ describe('idBase', () => {
         expect(idBase([{url: '/a.mp3'}])).toBe(idBase([{url: '/a.mp3'}]));
         expect(idBase([{url: '/a.mp3'}])).not.toBe(idBase([{url: '/b.mp3'}]));
         expect(idBase([{url: '/a.mp3'}])).toMatch(/^ws[0-9a-z]+$/);
+    });
+});
+
+describe('the BPM menu', () => {
+    const html = renderSounds([{url: '/a.mp3', bpm: 121}, {url: '/b.mp3', bpm: 128}, {url: '/c.mp3'}], {idPrefix: 'p'});
+    it('is a button opening a dialog with two range handles across the pack\'s tempos', () => {
+        expect(html).toContain('data-ws-menu="bpm"');
+        expect(html).toContain('aria-haspopup="dialog"');
+        expect(html).toMatch(/<span class="ws-menu-value" data-ws-menu-value>Any BPM<\/span>/);
+        expect(html).toMatch(/<input type="range" class="ws-range-input" data-ws-bpm-min aria-label="Min BPM" min="121" max="128" step="1" value="121">/);
+        expect(html).toMatch(/<input type="range" class="ws-range-input" data-ws-bpm-max aria-label="Max BPM" min="121" max="128" step="1" value="128">/);
+        expect(html).toContain('id="p-bpm-pop" role="dialog"');
+    });
+    it('writes no style attribute (a strict CSP would block it)', () => {
+        expect(html).not.toMatch(/ style="/);
+    });
+});
+
+describe('the Loop toggle\'s starting state', () => {
+    it('follows the data unless the loop option says otherwise', () => {
+        expect(loopsByDefault(null, {loops: 2})).toBe(true);
+        expect(loopsByDefault(undefined, {loops: 0})).toBe(false);
+        expect(loopsByDefault(false, {loops: 2})).toBe(false);
+        expect(loopsByDefault(true, {loops: 0})).toBe(true);
+    });
+    it('is rendered pressed for a list that marks loops', () => {
+        expect(renderSounds([{url: '/a.mp3', loop: true}, {url: '/b.mp3'}])).toContain('data-ws-loop aria-pressed="true"');
+        expect(renderSounds([{url: '/a.mp3'}, {url: '/b.mp3'}])).toContain('data-ws-loop aria-pressed="false"');
+        expect(renderSounds([{url: '/a.mp3', loop: true}, {url: '/b.mp3'}], {loop: false})).toContain('data-ws-loop aria-pressed="false"');
     });
 });

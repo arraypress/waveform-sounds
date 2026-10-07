@@ -104,6 +104,10 @@ export interface WaveformSoundsStrings {
     bpm: string;
     bpmMin: string;
     bpmMax: string;
+    /** The BPM menu with no limit set. */
+    anyBpm: string;
+    /** The BPM menu's range: `{min}`, `{max}`. */
+    bpmRange: string;
     sort: string;
     sortBy: string;
     sortDefault: string;
@@ -187,8 +191,9 @@ export interface WaveformSoundsOptions {
     barWidth?: number;
     /** Gap between row bars in CSS px. Default 1. */
     barGap?: number;
-    /** Start with Loop on. Default false. */
-    loop?: boolean;
+    /** Start with Loop on or off. Unset (default): on when any sound is
+     *  marked `loop: true` (then only loops repeat), off otherwise. */
+    loop?: boolean | null;
     /** Play the next visible sound when one ends. Default false. */
     autoAdvance?: boolean;
     /** While a sound plays, ↑/↓ move to the next row AND play it (the

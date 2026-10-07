@@ -5,6 +5,10 @@
  * the active option is `aria-activedescendant`, ↑/↓ move, Enter picks,
  * Esc closes and returns focus to the button.
  *
+ * A menu without a listbox is a PANEL (the BPM range): a button and a popup
+ * dialog of its own controls. It shares the opening, closing, outside-press
+ * and Esc handling; what's inside it reports its own changes.
+ *
  * The markup comes from `renderMenu()` (server or client); this module
  * only adds behaviour.
  *
@@ -50,8 +54,8 @@ function partsOf(menu) {
     };
 }
 
-/** The element that owns focus while a menu is open. */
-const focusOwner = (p) => p.search || p.list;
+/** The element that owns focus while a menu is open (a panel: its first field, else its first button). */
+const focusOwner = (p) => p.search || p.list || p.pop.querySelector('input') || p.pop.querySelector('button');
 
 /** A menu's options, optionally only the ones not filtered out. */
 const optionsOf = (p, visibleOnly = false) => [...p.list.querySelectorAll('[role="option"]')].filter((o) => !visibleOnly || !o.hidden);
@@ -89,6 +93,16 @@ export class Menus {
             p.button.addEventListener('keydown', (e) => {
                 if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); this.open(menu); }
             }, sig);
+            if (!p.list) {
+                // A panel: Esc anywhere inside it closes it.
+                p.pop.addEventListener('keydown', (e) => {
+                    if (e.key !== 'Escape') return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.close(true);
+                }, sig);
+                continue;
+            }
             p.list.addEventListener('click', (e) => {
                 const opt = e.target.closest('[role="option"]');
                 if (opt) this._pick(name, opt.dataset.value);
@@ -122,8 +136,8 @@ export class Menus {
         if (p.search) { p.search.value = ''; this._filter(menu, ''); }
         menu.classList.remove('ws-menu--end');
         if (p.pop.getBoundingClientRect().right > this.container.getBoundingClientRect().right + 1) menu.classList.add('ws-menu--end');
-        this._activate(menu, p.list.querySelector('[role="option"][aria-selected="true"]'));
-        focusOwner(p).focus();
+        if (p.list) this._activate(menu, p.list.querySelector('[role="option"][aria-selected="true"]'));
+        focusOwner(p)?.focus();
     }
 
     /**
@@ -153,6 +167,7 @@ export class Menus {
         const menu = this.menus[name];
         if (!menu) return;
         const p = partsOf(menu);
+        if (!p.list) return; // a panel shows its own value
         let label = null;
         for (const opt of optionsOf(p)) {
             const on = opt.dataset.value === String(value ?? '');
