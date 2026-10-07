@@ -474,9 +474,11 @@
 .ws-more { display: block; margin: 1.25rem auto 0; padding: 0.7rem 1.4rem; font-size: 0.92em; }
 .ws-more:hover, .ws-clear:hover { background: var(--ws-hover); }
 
-/* The strip layout: the engine is a full player docked under the list. */
+/* The strip layout: the engine is a full player docked under the list.
+ * It stays in place by default; set --ws-strip-position: sticky to keep it
+ * at the bottom of the viewport while a long list scrolls past. */
 .ws-engine--strip {
-    position: sticky;
+    position: var(--ws-strip-position, static);
     bottom: 0;
     margin-top: 1rem;
     padding: 0.75rem;

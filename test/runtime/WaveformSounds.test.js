@@ -370,6 +370,41 @@ describe('playback', () => {
         expect(audio.loop).toBe(false);
     });
 
+    it('strip: the first sound is cued (no autoplay, row unmarked) and the docked player plays it', async () => {
+        const ws = await make({player: 'strip'});
+        await settle();
+        const engine = MockWaveformPlayer.instances[0];
+        expect(engine.calls.loadTrack).toHaveLength(1);
+        expect(engine.calls.loadTrack[0]).toMatchObject({url: '/s/bass-01.mp3', title: 'Bass Loop 01', options: {autoplay: false}});
+        expect(ws.current).toBeNull(); // cued, not current
+        expect(rows()[0].classList.contains('is-current')).toBe(false);
+        engine.play(); // the docked player's own button
+        await settle();
+        expect(ws.playing).toBe(true);
+        expect(ws.current.title).toBe('Bass Loop 01');
+        expect(rows()[0].classList.contains('is-playing')).toBe(true);
+    });
+
+    it('strip: a filter change re-cues the first sound shown; next() starts with the cued one', async () => {
+        const ws = await make({player: 'strip'});
+        await settle();
+        const engine = MockWaveformPlayer.instances[0];
+        ws.setFilter({type: 'Drums'});
+        expect(engine.calls.loadTrack.at(-1)).toMatchObject({url: '/s/drum-01.mp3', options: {autoplay: false}});
+        ws.next();
+        await settle();
+        expect(ws.current.title).toBe('Drum Loop 01');
+        expect(ws.playing).toBe(true);
+        ws.setFilter({type: ''}); // after a play nothing is re-cued
+        expect(engine.calls.loadTrack.at(-1).url).toBe('/s/drum-01.mp3');
+    });
+
+    it('inline: nothing is cued', async () => {
+        await make();
+        await settle();
+        expect(MockWaveformPlayer.instances[0]?.calls.loadTrack ?? []).toHaveLength(0);
+    });
+
     it('Loop starts on for a list that marks loops, off otherwise, and an option or setLoop wins', async () => {
         const marked = [{url: '/l.mp3', title: 'Drum Loop', loop: true}, {url: '/k.mp3', title: 'Kick'}];
         let ws = await make({sounds: marked});

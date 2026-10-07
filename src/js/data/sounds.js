@@ -86,7 +86,8 @@ function keyRank(key) {
 }
 
 /**
- * Format seconds as m:ss, or as tenths under a second.
+ * Format seconds as m:ss (whole seconds, rounded down like a player's
+ * clock), or as tenths under a second.
  *
  * A one-shot (a kick, a hat) is often shorter than a second, and m:ss would
  * round it to "0:00", which reads as a missing length.
@@ -101,7 +102,9 @@ export function formatDuration(seconds) {
     if (!Number.isFinite(s) || s < 0) return '';
     // Anything that would round to "1.0s" is shown as "0:01" instead.
     if (s > 0 && s < 0.95) return `${Math.max(0.1, Math.round(s * 10) / 10).toFixed(1)}s`;
-    const total = Math.round(s);
+    // Whole seconds DOWN, as the player's own clock counts them, so a row
+    // and the docked player never disagree (7.6s is 0:07 in both).
+    const total = s < 1 ? Math.ceil(s) : Math.floor(s);
     return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 

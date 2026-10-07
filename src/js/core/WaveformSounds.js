@@ -153,6 +153,9 @@ export class WaveformSounds {
         // BEFORE the first play — built on first play, that sound went
         // untracked.
         if (this._playerClass()) this._ensureEngine();
+        // Strip: the docked player starts with the first sound cued — its
+        // title and waveform, ready to play — rather than an empty frame.
+        if (this.render.player === 'strip' && this.engine && this.currentIndex == null) this._cueFirst();
 
         this._emit('ready', {sounds: this.sounds.length});
         this.options.onReady?.(this);
@@ -588,6 +591,8 @@ export class WaveformSounds {
         }
         if ($.empty) $.empty.hidden = shown.length > 0;
         if ($.count) $.count.textContent = countText(shown.length, this.sounds.length, this.strings);
+        // Nothing played yet: keep the cued sound one the list still shows.
+        if (this._cued && !this.playing) this._cueFirst();
         this._queueUrl();
         this._emit('filter', {visible: shown.length, total: this.sounds.length, filter: {...this.filter}, sort: this.sortBy});
         this.options.onFilter?.(shown, this);
@@ -673,6 +678,7 @@ export class WaveformSounds {
         if (!this.$) { this.ready.then(() => { if (!this.destroyed) this.play(target, opts); }); return; }
         const index = this._indexOf(target);
         if (index == null) return;
+        this._cued = false;
         const engine = this._ensureEngine();
         if (!engine) return;
         if (index === this.currentIndex && engine.audio?.src) {
@@ -688,6 +694,26 @@ export class WaveformSounds {
         this._paintRow(index);
         const sound = this.sounds[index];
         engine.loadTrack(sound.url, sound.title, sound.type || null, {waveform: enginePeaks(sound, this.render.player), autoplay: true});
+    }
+
+    /**
+     * Strip layout: load the first sound the list shows into the docked
+     * player WITHOUT playing it, so the player shows a title and waveform
+     * (and its play button plays that sound) instead of an empty frame.
+     * Only metadata is fetched — the browser default for any `<audio>`.
+     * The row isn't marked current until it plays.
+     * @private
+     */
+    _cueFirst() {
+        const engine = this.engine;
+        const first = this.visible[0];
+        if (!engine || !first) return;
+        const index = this.sounds.indexOf(first);
+        if (index === this.currentIndex) return;
+        this.currentIndex = index;
+        this.progress = 0;
+        this._cued = true;
+        engine.loadTrack(first.url, first.title, first.type || null, {waveform: enginePeaks(first, 'strip'), autoplay: false});
     }
 
     /** Pause the current sound. */
@@ -722,7 +748,8 @@ export class WaveformSounds {
      */
     _step(dir) {
         const shown = this.visible;
-        const at = this.currentIndex == null ? -1 : shown.indexOf(this.sounds[this.currentIndex]);
+        // A cued sound counts as nothing played: next() starts with it.
+        const at = this.currentIndex == null || this._cued ? -1 : shown.indexOf(this.sounds[this.currentIndex]);
         const target = shown[at + dir];
         if (!target) return false;
         const limit = limitToReveal(this.limit, at + dir);
@@ -851,6 +878,7 @@ export class WaveformSounds {
     _setPlaying(on) {
         const changed = this.playing !== on;
         this.playing = on;
+        if (on) this._cued = false; // the strip's own button played the cued sound
         const index = this.currentIndex;
         if (index == null) return;
         this._paintRow(index);
@@ -899,7 +927,8 @@ export class WaveformSounds {
 
     /** The sound playing (or paused) now, or null. */
     get current() {
-        return this.currentIndex == null ? null : this.sounds[this.currentIndex];
+        // A cued sound (strip, nothing played yet) isn't "current".
+        return this.currentIndex == null || this._cued ? null : this.sounds[this.currentIndex];
     }
 
     /**

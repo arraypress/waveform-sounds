@@ -99,7 +99,7 @@
     const s = Number(seconds);
     if (!Number.isFinite(s) || s < 0) return "";
     if (s > 0 && s < 0.95) return `${Math.max(0.1, Math.round(s * 10) / 10).toFixed(1)}s`;
-    const total = Math.round(s);
+    const total = s < 1 ? Math.ceil(s) : Math.floor(s);
     return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
   }
   function parseDuration(value) {
@@ -1294,6 +1294,7 @@
       this._syncControls();
       this._apply({ resort: this.sortBy !== "default" });
       if (this._playerClass()) this._ensureEngine();
+      if (this.render.player === "strip" && this.engine && this.currentIndex == null) this._cueFirst();
       this._emit("ready", { sounds: this.sounds.length });
       this.options.onReady?.(this);
     }
@@ -1719,6 +1720,7 @@
       }
       if ($.empty) $.empty.hidden = shown.length > 0;
       if ($.count) $.count.textContent = countText(shown.length, this.sounds.length, this.strings);
+      if (this._cued && !this.playing) this._cueFirst();
       this._queueUrl();
       this._emit("filter", { visible: shown.length, total: this.sounds.length, filter: { ...this.filter }, sort: this.sortBy });
       this.options.onFilter?.(shown, this);
@@ -1803,6 +1805,7 @@
       }
       const index = this._indexOf(target);
       if (index == null) return;
+      this._cued = false;
       const engine = this._ensureEngine();
       if (!engine) return;
       if (index === this.currentIndex && engine.audio?.src) {
@@ -1818,6 +1821,25 @@
       this._paintRow(index);
       const sound = this.sounds[index];
       engine.loadTrack(sound.url, sound.title, sound.type || null, { waveform: enginePeaks(sound, this.render.player), autoplay: true });
+    }
+    /**
+     * Strip layout: load the first sound the list shows into the docked
+     * player WITHOUT playing it, so the player shows a title and waveform
+     * (and its play button plays that sound) instead of an empty frame.
+     * Only metadata is fetched — the browser default for any `<audio>`.
+     * The row isn't marked current until it plays.
+     * @private
+     */
+    _cueFirst() {
+      const engine = this.engine;
+      const first = this.visible[0];
+      if (!engine || !first) return;
+      const index = this.sounds.indexOf(first);
+      if (index === this.currentIndex) return;
+      this.currentIndex = index;
+      this.progress = 0;
+      this._cued = true;
+      engine.loadTrack(first.url, first.title, first.type || null, { waveform: enginePeaks(first, "strip"), autoplay: false });
     }
     /** Pause the current sound. */
     pause() {
@@ -1851,7 +1873,7 @@
      */
     _step(dir) {
       const shown = this.visible;
-      const at = this.currentIndex == null ? -1 : shown.indexOf(this.sounds[this.currentIndex]);
+      const at = this.currentIndex == null || this._cued ? -1 : shown.indexOf(this.sounds[this.currentIndex]);
       const target = shown[at + dir];
       if (!target) return false;
       const limit = limitToReveal(this.limit, at + dir);
@@ -1980,6 +2002,7 @@
     _setPlaying(on) {
       const changed = this.playing !== on;
       this.playing = on;
+      if (on) this._cued = false;
       const index = this.currentIndex;
       if (index == null) return;
       this._paintRow(index);
@@ -2023,7 +2046,7 @@
     }
     /** The sound playing (or paused) now, or null. */
     get current() {
-      return this.currentIndex == null ? null : this.sounds[this.currentIndex];
+      return this.currentIndex == null || this._cued ? null : this.sounds[this.currentIndex];
     }
     /**
      * Tear down: listeners, observers, timers and the engine. Markup this

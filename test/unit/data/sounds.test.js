@@ -50,6 +50,9 @@ describe('durations and titles', () => {
     });
     it('formats m:ss', () => {
         expect(formatDuration(8.4)).toBe('0:08');
+        // Rounded down like the player's clock: 7.63s is 0:07 in the row AND the docked player.
+        expect(formatDuration(7.63)).toBe('0:07');
+        expect(formatDuration(59.9)).toBe('0:59');
         expect(formatDuration(75)).toBe('1:15');
         // Under a second: tenths, not a "0:00" that reads as missing.
         expect(formatDuration(0.38)).toBe('0.4s');
