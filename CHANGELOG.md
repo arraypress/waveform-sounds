@@ -6,6 +6,15 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-10-07
+
+### Fixed
+
+- **Sounds under a second show their length.** `formatDuration` rounded to
+  whole seconds, so a 0.38s one-shot read `0:00` — which looks like a
+  missing length, and one-shots (kicks, hats, single notes) are routinely
+  that short. Under a second it now shows tenths: `0.4s`.
+
 ## [0.1.2] — 2026-10-07
 
 ### Fixed

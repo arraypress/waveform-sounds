@@ -86,15 +86,21 @@ function keyRank(key) {
 }
 
 /**
- * Format seconds as m:ss.
+ * Format seconds as m:ss, or as tenths under a second.
+ *
+ * A one-shot (a kick, a hat) is often shorter than a second, and m:ss would
+ * round it to "0:00", which reads as a missing length.
+ *
  * @param {number|null|undefined} seconds
- * @returns {string} e.g. "0:08", or '' when unknown.
+ * @returns {string} e.g. "0:08", "0.4s", or '' when unknown.
  */
 export function formatDuration(seconds) {
     // Number(null) is 0: an unknown length must not render as "0:00".
     if (seconds == null || seconds === '') return '';
     const s = Number(seconds);
     if (!Number.isFinite(s) || s < 0) return '';
+    // Anything that would round to "1.0s" is shown as "0:01" instead.
+    if (s > 0 && s < 0.95) return `${Math.max(0.1, Math.round(s * 10) / 10).toFixed(1)}s`;
     const total = Math.round(s);
     return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }

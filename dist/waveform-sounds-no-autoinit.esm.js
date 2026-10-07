@@ -97,6 +97,7 @@ function formatDuration(seconds) {
   if (seconds == null || seconds === "") return "";
   const s = Number(seconds);
   if (!Number.isFinite(s) || s < 0) return "";
+  if (s > 0 && s < 0.95) return `${Math.max(0.1, Math.round(s * 10) / 10).toFixed(1)}s`;
   const total = Math.round(s);
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }

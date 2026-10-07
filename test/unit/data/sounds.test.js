@@ -51,6 +51,11 @@ describe('durations and titles', () => {
     it('formats m:ss', () => {
         expect(formatDuration(8.4)).toBe('0:08');
         expect(formatDuration(75)).toBe('1:15');
+        // Under a second: tenths, not a "0:00" that reads as missing.
+        expect(formatDuration(0.38)).toBe('0.4s');
+        expect(formatDuration(0.04)).toBe('0.1s');
+        expect(formatDuration(0.96)).toBe('0:01');
+        expect(formatDuration(0)).toBe('0:00');
         expect(formatDuration(null)).toBe('');
     });
     it('derives a title from a file name', () => {
