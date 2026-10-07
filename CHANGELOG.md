@@ -14,6 +14,13 @@ project adheres to [Semantic Versioning](https://semver.org/).
   whole seconds, so a 0.38s one-shot read `0:00` — which looks like a
   missing length, and one-shots (kicks, hats, single notes) are routinely
   that short. Under a second it now shows tenths: `0.4s`.
+- **The `strip` player matches a dark page.** Its background fell back to the
+  system `Canvas` colour, which is white on a dark page that doesn't declare
+  `color-scheme: dark` — a white box under a dark list. It now falls back to
+  `--ws-surface` (the measured page surface), as the dropdowns already did.
+- **No stray `·` on a narrow screen.** The mobile meta line put a separator
+  before a cell whenever any cell came first, even an empty one, so a sound
+  with no key read `· 0:08`. It now follows only a cell with content.
 
 ## [0.1.2] — 2026-10-07
 

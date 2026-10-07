@@ -334,7 +334,9 @@
     .ws-cells { grid-area: cells; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.5rem; min-width: 0; }
     .ws-cells > .ws-cell { flex: none; width: auto; text-align: left; font-size: 0.78em; }
     .ws-cells > .ws-cell:empty { display: none; }
-    .ws-cells > .ws-cell + .ws-cell:not(:empty)::before { content: '·'; margin-right: 0.5rem; opacity: 0.6; }
+    /* A dot only after an earlier cell with something in it: a sound with no
+       key must not read "· 0:08". */
+    .ws-cells > .ws-cell:not(:empty) ~ .ws-cell:not(:empty)::before { content: '·'; margin-right: 0.5rem; opacity: 0.6; }
     .ws-wave { grid-area: wave; margin-top: 0.35rem; min-width: 0; }
     .ws-download { grid-area: dl; align-self: start; }
 }
@@ -361,7 +363,9 @@
     padding: 0.75rem;
     border: 1px solid var(--ws-border);
     border-radius: var(--ws-radius);
-    background: var(--ws-strip-bg, Canvas);
+    /* The page surface (measured, or given), not the system Canvas colour,
+       which is white on a dark page that doesn't declare color-scheme. */
+    background: var(--ws-strip-bg, var(--ws-surface, Canvas));
     z-index: 1;
 }
 
